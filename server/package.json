@@ -10,13 +10,17 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx src/db/seed.ts",
-    "test": "tsx --test test/*.test.ts"
+    "db:reset": "tsx src/db/seed.ts --reset",
+    "report:weekly": "tsx scripts/run-weekly-report.ts",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.3.0",
     "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",
@@ -28,7 +32,12 @@
     "dotenv": "^18.0.7",
     "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "file-type": "^22.1.1",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.1.0",
     "pg": "^8.23.1",
     "zod": "^4.6.6"
   }

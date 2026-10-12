@@ -8,6 +8,34 @@
       "when": 1791797348018,
       "tag": "0000_certain_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791801871405,
+      "tag": "0001_phase2_foundations",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791802941658,
+      "tag": "0002_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791803753840,
+      "tag": "0003_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791805494543,
+      "tag": "0004_weekly_reports",
+      "breakpoints": true
     }
   ]
 }
