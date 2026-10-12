@@ -13,6 +13,21 @@ export interface Employee {
   name: string;
 }
 
+export interface ProjectRef {
+  id: string;
+  name: string;
+  colourIndex: number;
+}
+
+/** A project as the admin projects page sees it. */
+export interface Project extends ProjectRef {
+  description: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  openTasks: number;
+  totalTasks: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -21,12 +36,81 @@ export interface Task {
   deadline: string; // YYYY-MM-DD
   status: Status;
   createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
   assignee: Employee;
+  project: ProjectRef;
+  attachmentCount: number;
+}
+
+export interface Attachment {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  uploader: Employee;
+}
+
+/** Fields an admin can set when creating or editing a task. */
+export interface TaskInput {
+  title: string;
+  description: string;
+  assigneeId: string;
+  projectId: string;
+  priority: Priority;
+  deadline: string;
+}
+
+export type TaskEventType =
+  | 'created'
+  | 'updated'
+  | 'reassigned'
+  | 'status_changed'
+  | 'archived'
+  | 'restored'
+  | 'attachment_added'
+  | 'attachment_removed';
+
+export interface TaskEvent {
+  id: string;
+  type: TaskEventType;
+  data: Record<string, any>;
+  createdAt: string;
+  actor: Employee;
+}
+
+export interface TaskTimeline {
+  events: TaskEvent[];
+  /** id -> display name for people and projects mentioned in the events */
+  names: Record<string, string>;
+}
+
+export interface AppNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  taskId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPage {
+  items: AppNotification[];
+  nextCursor: string | null;
+}
+
+export interface NotificationPreferences {
+  emailEnabled: boolean;
+  emailFrequency: 'instant' | 'daily';
 }
 
 export interface TaskFilterValues {
   status: Status | '';
   assigneeId: string;
+  projectId: string;
 }
 
 export const STATUS_LABELS: Record<Status, string> = {

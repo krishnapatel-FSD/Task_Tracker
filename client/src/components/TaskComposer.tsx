@@ -1,23 +1,39 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api';
-import { PRIORITIES, PRIORITY_LABELS, type Employee, type Priority, type Task } from '../types';
+import { PRIORITIES, PRIORITY_LABELS, type Employee, type Priority, type ProjectRef, type Task, type TaskInput } from '../types';
 
 interface Props {
-  open: boolean;
+  mode: 'create' | 'edit';
+  /** create: animates open/closed above the list. edit: always open, docked under its row. */
+  open?: boolean;
+  initial?: Task;
   employees: Employee[];
-  onCreated: (task: Task) => void;
+  projects: ProjectRef[];
+  onSaved: (task: Task) => void;
   onClose: () => void;
 }
 
-type Field = 'title' | 'description' | 'assigneeId' | 'priority' | 'deadline';
+type Field = keyof TaskInput;
 type FormState = Record<Field, string>;
 
-const emptyForm: FormState = { title: '', description: '', assigneeId: '', priority: '', deadline: '' };
+const emptyForm: FormState = { title: '', description: '', assigneeId: '', projectId: '', priority: '', deadline: '' };
+
+function fromTask(task: Task): FormState {
+  return {
+    title: task.title,
+    description: task.description,
+    assigneeId: task.assignee.id,
+    projectId: task.project.id,
+    priority: task.priority,
+    deadline: task.deadline,
+  };
+}
 
 function validate(form: FormState) {
   const errors: Partial<Record<Field, string>> = {};
   if (!form.title.trim()) errors.title = 'Give the task a title.';
   else if (form.title.trim().length > 150) errors.title = 'Keep the title to 150 characters or fewer.';
+  if (!form.projectId) errors.projectId = 'Choose a project.';
   if (!form.assigneeId) errors.assigneeId = 'Choose who this task is for.';
   if (!form.priority) errors.priority = 'Choose a priority.';
   if (!form.deadline) errors.deadline = 'Choose a deadline.';
@@ -25,28 +41,24 @@ function validate(form: FormState) {
   return errors;
 }
 
-/** Inline panel that opens above the list, so the admin never loses sight of it. */
-export function TaskComposer({ open, employees, onCreated, onClose }: Props) {
-  const [form, setForm] = useState(emptyForm);
+/** Inline task form. Never a modal: it opens above the list (create) or under its row (edit). */
+export function TaskComposer({ mode, open = true, initial, employees, projects, onSaved, onClose }: Props) {
+  const [form, setForm] = useState<FormState>(initial ? fromTask(initial) : emptyForm);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
-  const clipRef = useRef<HTMLDivElement>(null);
+  const idPrefix = mode === 'edit' && initial ? `edit-${initial.id}` : 'composer';
 
   useEffect(() => {
     if (open) {
-      // Focusing inside the collapsed clip would scroll it; wait for the open transition.
-      const timer = window.setTimeout(() => {
-        titleRef.current?.focus({ preventScroll: true });
-        if (clipRef.current) clipRef.current.scrollTop = 0;
-      }, 250);
+      // Wait for the open transition, then focus without scrolling the clip.
+      const timer = window.setTimeout(() => titleRef.current?.focus({ preventScroll: true }), mode === 'create' ? 250 : 0);
       return () => window.clearTimeout(timer);
-    } else {
-      setForm(emptyForm);
-      setErrors({});
-      setServerError(null);
     }
+    setForm(initial ? fromTask(initial) : emptyForm);
+    setErrors({});
+    setServerError(null);
   }, [open]);
 
   const set = (field: Field, value: string) => {
@@ -59,147 +71,189 @@ export function TaskComposer({ open, employees, onCreated, onClose }: Props) {
     const found = validate(form);
     setErrors(found);
     if (Object.keys(found).length > 0) {
-      document.getElementById(`composer-${Object.keys(found)[0]}`)?.focus();
+      document.getElementById(`${idPrefix}-${Object.keys(found)[0]}`)?.focus();
       return;
     }
+
+    const values: TaskInput = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      assigneeId: form.assigneeId,
+      projectId: form.projectId,
+      priority: form.priority as Priority,
+      deadline: form.deadline,
+    };
 
     setSubmitting(true);
     setServerError(null);
     try {
-      const task = await api.createTask({
-        title: form.title.trim(),
-        description: form.description.trim(),
-        assigneeId: form.assigneeId,
-        priority: form.priority as Priority,
-        deadline: form.deadline,
-      });
-      onCreated(task);
+      if (mode === 'edit' && initial) {
+        const before = fromTask(initial);
+        const changes = Object.fromEntries(
+          (Object.keys(values) as Field[]).filter((k) => values[k] !== before[k]).map((k) => [k, values[k]]),
+        ) as Partial<TaskInput>;
+        if (Object.keys(changes).length === 0) {
+          onClose();
+          return;
+        }
+        onSaved(await api.updateTask(initial.id, changes));
+      } else {
+        onSaved(await api.createTask(values));
+      }
     } catch (err) {
-      setServerError(err instanceof ApiError ? err.message : "We couldn't create the task. Check your connection and try again.");
+      setServerError(err instanceof ApiError ? err.message : "We couldn't save the task. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
-  const describedBy = (field: Field) => (errors[field] ? `composer-${field}-error` : undefined);
+  const fieldId = (field: Field) => `${idPrefix}-${field}`;
+  const describedBy = (field: Field) => (errors[field] ? `${fieldId(field)}-error` : undefined);
   const fieldError = (field: Field) =>
     errors[field] && (
-      <span id={`composer-${field}-error`} className="field-error">
+      <span id={`${fieldId(field)}-error`} className="field-error">
         {errors[field]}
       </span>
     );
 
+  // An archived project can still be the current one in edit mode; keep it selectable.
+  const projectOptions =
+    initial && !projects.some((p) => p.id === initial.project.id) ? [...projects, initial.project] : projects;
+
+  const formEl = (
+    <form
+      className={`composer${mode === 'edit' ? ' composer-edit' : ''}`}
+      onSubmit={handleSubmit}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      noValidate
+      aria-labelledby={`${idPrefix}-heading`}
+    >
+      <h2 id={`${idPrefix}-heading`} className="composer-heading">
+        {mode === 'edit' ? 'Edit task' : 'New task'}
+      </h2>
+
+      <div className="composer-grid">
+        <label className="field field-title">
+          <span className="field-label">Title</span>
+          <input
+            id={fieldId('title')}
+            ref={titleRef}
+            value={form.title}
+            maxLength={150}
+            aria-invalid={Boolean(errors.title)}
+            aria-describedby={describedBy('title')}
+            onChange={(e) => set('title', e.target.value)}
+          />
+          {fieldError('title')}
+        </label>
+
+        <label className="field">
+          <span className="field-label">Project</span>
+          <select
+            id={fieldId('projectId')}
+            value={form.projectId}
+            aria-invalid={Boolean(errors.projectId)}
+            aria-describedby={describedBy('projectId')}
+            onChange={(e) => set('projectId', e.target.value)}
+          >
+            <option value="">Choose a project</option>
+            {projectOptions.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          {fieldError('projectId')}
+        </label>
+
+        <label className="field">
+          <span className="field-label">Assignee</span>
+          <select
+            id={fieldId('assigneeId')}
+            value={form.assigneeId}
+            aria-invalid={Boolean(errors.assigneeId)}
+            aria-describedby={describedBy('assigneeId')}
+            onChange={(e) => set('assigneeId', e.target.value)}
+          >
+            <option value="">Choose an employee</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+          {fieldError('assigneeId')}
+        </label>
+
+        <fieldset className="field" aria-describedby={describedBy('priority')}>
+          <legend className="field-label">Priority</legend>
+          <div className="segmented" id={fieldId('priority')} tabIndex={-1}>
+            {PRIORITIES.map((p) => (
+              <label key={p} className="segment">
+                <input
+                  type="radio"
+                  name={`${idPrefix}-priority`}
+                  value={p}
+                  checked={form.priority === p}
+                  onChange={() => set('priority', p)}
+                />
+                <span>{PRIORITY_LABELS[p]}</span>
+              </label>
+            ))}
+          </div>
+          {fieldError('priority')}
+        </fieldset>
+
+        <label className="field">
+          <span className="field-label">Deadline</span>
+          <input
+            id={fieldId('deadline')}
+            type="date"
+            value={form.deadline}
+            aria-invalid={Boolean(errors.deadline)}
+            aria-describedby={describedBy('deadline')}
+            onChange={(e) => set('deadline', e.target.value)}
+          />
+          {fieldError('deadline')}
+        </label>
+
+        <label className="field field-description">
+          <span className="field-label">Description</span>
+          <textarea
+            id={fieldId('description')}
+            rows={3}
+            value={form.description}
+            aria-invalid={Boolean(errors.description)}
+            aria-describedby={describedBy('description')}
+            onChange={(e) => set('description', e.target.value)}
+          />
+          {fieldError('description')}
+        </label>
+      </div>
+
+      {serverError && (
+        <p className="banner banner-error" role="alert">
+          {serverError}
+        </p>
+      )}
+
+      <div className="composer-actions">
+        {mode === 'create' && <span className="composer-hint">New tasks start as To do.</span>}
+        <button type="button" className="btn btn-quiet" onClick={onClose} disabled={submitting}>
+          Cancel
+        </button>
+        <button type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Create task'}
+        </button>
+      </div>
+    </form>
+  );
+
+  if (mode === 'edit') return formEl;
+
   return (
     <div className={`composer-wrap${open ? ' is-open' : ''}`} inert={!open}>
-      <div className="composer-clip" ref={clipRef}>
-        <form
-          className="composer"
-          onSubmit={handleSubmit}
-          onKeyDown={(e) => e.key === 'Escape' && onClose()}
-          noValidate
-          aria-labelledby="composer-heading"
-        >
-          <h2 id="composer-heading" className="composer-heading">
-            New task
-          </h2>
-
-          <div className="composer-grid">
-            <label className="field field-title">
-              <span className="field-label">Title</span>
-              <input
-                id="composer-title"
-                ref={titleRef}
-                value={form.title}
-                maxLength={150}
-                aria-invalid={Boolean(errors.title)}
-                aria-describedby={describedBy('title')}
-                onChange={(e) => set('title', e.target.value)}
-              />
-              {fieldError('title')}
-            </label>
-
-            <label className="field">
-              <span className="field-label">Assignee</span>
-              <select
-                id="composer-assigneeId"
-                value={form.assigneeId}
-                aria-invalid={Boolean(errors.assigneeId)}
-                aria-describedby={describedBy('assigneeId')}
-                onChange={(e) => set('assigneeId', e.target.value)}
-              >
-                <option value="">Choose an employee</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
-              {fieldError('assigneeId')}
-            </label>
-
-            <fieldset className="field" aria-describedby={describedBy('priority')}>
-              <legend className="field-label">Priority</legend>
-              <div className="segmented" id="composer-priority" tabIndex={-1}>
-                {PRIORITIES.map((p) => (
-                  <label key={p} className="segment">
-                    <input
-                      type="radio"
-                      name="priority"
-                      value={p}
-                      checked={form.priority === p}
-                      onChange={() => set('priority', p)}
-                    />
-                    <span>{PRIORITY_LABELS[p]}</span>
-                  </label>
-                ))}
-              </div>
-              {fieldError('priority')}
-            </fieldset>
-
-            <label className="field">
-              <span className="field-label">Deadline</span>
-              <input
-                id="composer-deadline"
-                type="date"
-                value={form.deadline}
-                aria-invalid={Boolean(errors.deadline)}
-                aria-describedby={describedBy('deadline')}
-                onChange={(e) => set('deadline', e.target.value)}
-              />
-              {fieldError('deadline')}
-            </label>
-
-            <label className="field field-description">
-              <span className="field-label">Description</span>
-              <textarea
-                id="composer-description"
-                rows={3}
-                value={form.description}
-                aria-invalid={Boolean(errors.description)}
-                aria-describedby={describedBy('description')}
-                onChange={(e) => set('description', e.target.value)}
-              />
-              {fieldError('description')}
-            </label>
-          </div>
-
-          {serverError && (
-            <p className="banner banner-error" role="alert">
-              {serverError}
-            </p>
-          )}
-
-          <div className="composer-actions">
-            <span className="composer-hint">New tasks start as To do.</span>
-            <button type="button" className="btn btn-quiet" onClick={onClose} disabled={submitting}>
-              Cancel
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Creating…' : 'Create task'}
-            </button>
-          </div>
-        </form>
-      </div>
+      <div className="composer-clip">{formEl}</div>
     </div>
   );
 }

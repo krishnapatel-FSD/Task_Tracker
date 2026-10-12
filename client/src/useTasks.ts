@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
+import { NOTIFICATIONS_ARRIVED } from './notifications';
 import type { Status, Task, TaskFilterValues } from './types';
 
 const FLASH_MS = 1600;
@@ -26,9 +27,16 @@ export function useTasks(filters: TaskFilterValues) {
     return () => {
       cancelled = true;
     };
-  }, [filters.status, filters.assigneeId, reloadKey]);
+  }, [filters.status, filters.assigneeId, filters.projectId, reloadKey]);
 
   useEffect(() => () => window.clearTimeout(flashTimer.current), []);
+
+  // Something changed elsewhere (a new notification arrived): refresh quietly.
+  useEffect(() => {
+    const onArrived = () => setReloadKey((k) => k + 1);
+    window.addEventListener(NOTIFICATIONS_ARRIVED, onArrived);
+    return () => window.removeEventListener(NOTIFICATIONS_ARRIVED, onArrived);
+  }, []);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -38,6 +46,34 @@ export function useTasks(filters: TaskFilterValues) {
     setFlashId(id);
     flashTimer.current = window.setTimeout(() => setFlashId(null), FLASH_MS);
   }, []);
+
+  /** Puts a saved task back in place, or drops it if it no longer matches the filters. */
+  const replaceTask = useCallback(
+    (task: Task) => {
+      const matches =
+        (!filters.status || task.status === filters.status) &&
+        (!filters.assigneeId || task.assignee.id === filters.assigneeId) &&
+        (!filters.projectId || task.project.id === filters.projectId);
+      setTasks((list) => {
+        const without = list.filter((t) => t.id !== task.id);
+        if (!matches) return without;
+        // Keep deadline order after an edit that moved the deadline.
+        return [...without, task].sort(
+          (a, b) => a.deadline.localeCompare(b.deadline) || a.createdAt.localeCompare(b.createdAt),
+        );
+      });
+      if (matches) flash(task.id);
+    },
+    [filters.status, filters.assigneeId, filters.projectId, flash],
+  );
+
+  const removeTask = useCallback((id: string) => setTasks((list) => list.filter((t) => t.id !== id)), []);
+
+  /** Small in-place update (e.g. a new file count), without a flash. */
+  const patchTask = useCallback(
+    (id: string, patch: Partial<Task>) => setTasks((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t))),
+    [],
+  );
 
   const changeStatus = useCallback(
     async (task: Task, status: Status) => {
@@ -61,5 +97,5 @@ export function useTasks(filters: TaskFilterValues) {
     [filters.status, flash],
   );
 
-  return { tasks, loading, error, updatingId, flashId, changeStatus, reload, flash };
+  return { tasks, loading, error, updatingId, flashId, changeStatus, reload, flash, replaceTask, removeTask, patchTask, setError };
 }

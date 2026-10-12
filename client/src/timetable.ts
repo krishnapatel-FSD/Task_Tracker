@@ -53,21 +53,23 @@ export function relativeDue(task: Task, today = todayIso()) {
   return days === -1 ? '1 day late' : `${-days} days late`;
 }
 
-export type GroupKey = 'past' | 'today' | 'thisWeek' | 'nextWeek' | 'later';
+export type GroupKey = 'past' | 'today' | 'thisWeek' | 'nextWeek' | 'later' | 'earlier';
 
 export const GROUP_LABELS: Record<GroupKey, string> = {
-  past: 'Past due date',
+  past: 'Overdue',
   today: 'Due today',
   thisWeek: 'This week',
   nextWeek: 'Next week',
   later: 'Later',
+  earlier: 'Finished earlier',
 };
 
-const GROUP_ORDER: GroupKey[] = ['past', 'today', 'thisWeek', 'nextWeek', 'later'];
+const GROUP_ORDER: GroupKey[] = ['past', 'today', 'thisWeek', 'nextWeek', 'later', 'earlier'];
 
-function groupFor(deadline: string, today: string): GroupKey {
-  const days = daysUntil(deadline, today);
-  if (days < 0) return 'past';
+function groupFor(task: Task, today: string): GroupKey {
+  const days = daysUntil(task.deadline, today);
+  // Finished work whose date has passed leaves the board, like a departed train.
+  if (days < 0) return task.status === 'done' ? 'earlier' : 'past';
   if (days === 0) return 'today';
   // Weeks run Monday to Sunday.
   const weekday = (asLocalDate(today).getDay() + 6) % 7; // 0 = Monday
@@ -81,7 +83,7 @@ function groupFor(deadline: string, today: string): GroupKey {
 export function groupTasks(tasks: Task[], today = todayIso()) {
   const buckets = new Map<GroupKey, Task[]>();
   for (const task of tasks) {
-    const key = groupFor(task.deadline, today);
+    const key = groupFor(task, today);
     buckets.set(key, [...(buckets.get(key) ?? []), task]);
   }
   return GROUP_ORDER.filter((key) => buckets.has(key)).map((key) => ({ key, tasks: buckets.get(key)! }));

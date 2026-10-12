@@ -1,20 +1,25 @@
-import { STATUS_LABELS, STATUSES, type Employee, type Status, type TaskFilterValues } from '../types';
+import { STATUS_LABELS, STATUSES, type Employee, type ProjectRef, type Status, type TaskFilterValues } from '../types';
 
 interface Props {
   value: TaskFilterValues;
   onChange: (value: TaskFilterValues) => void;
+  projects: ProjectRef[];
   /** Pass employees to show the assignee filter (admin only). */
   employees?: Employee[];
 }
+
+export const NO_FILTERS: TaskFilterValues = { status: '', assigneeId: '', projectId: '' };
 
 const STATUS_OPTIONS: { value: Status | ''; label: string }[] = [
   { value: '', label: 'All' },
   ...STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
 ];
 
-export function TaskFilters({ value, onChange, employees }: Props) {
-  const hasFilters = value.status !== '' || value.assigneeId !== '';
+export function hasFilters(value: TaskFilterValues) {
+  return value.status !== '' || value.assigneeId !== '' || value.projectId !== '';
+}
 
+export function TaskFilters({ value, onChange, projects, employees }: Props) {
   return (
     <div className="filters">
       <fieldset className="filter">
@@ -35,6 +40,20 @@ export function TaskFilters({ value, onChange, employees }: Props) {
         </div>
       </fieldset>
 
+      {projects.length > 1 && (
+        <label className="filter filter-select">
+          <span className="sr-only">Filter by project</span>
+          <select value={value.projectId} onChange={(e) => onChange({ ...value, projectId: e.target.value })}>
+            <option value="">All projects</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {employees && (
         <label className="filter filter-select">
           <span className="sr-only">Filter by assignee</span>
@@ -49,8 +68,8 @@ export function TaskFilters({ value, onChange, employees }: Props) {
         </label>
       )}
 
-      {hasFilters && (
-        <button type="button" className="btn btn-link" onClick={() => onChange({ status: '', assigneeId: '' })}>
+      {hasFilters(value) && (
+        <button type="button" className="btn btn-link" onClick={() => onChange(NO_FILTERS)}>
           Clear filters
         </button>
       )}
