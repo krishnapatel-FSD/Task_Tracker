@@ -19,7 +19,8 @@ Restrained palette. Colour only does a job: focus, state, lateness, or identifyi
 | `--late` | `#b42318` | `#ff8f80` | Overdue dates, errors |
 | `--done` / `--done-soft` | `#2c6a4a` / `#e2f0e7` | `#86d3a6` / `#16291f` | "Done" status |
 | `--progress-ink` / `--progress-soft` | `#5c4600` / `#fdf1c2` | `#f7d65a` / `#3b3112` | "In progress" status |
-| `--line-0` to `--line-7` | rust, blue, green, ochre, violet, teal, magenta, slate | lighter equivalents | Each employee's "line colour", shown as a 4px swatch beside their name (admin only) |
+| `--line-0` to `--line-7` | `#2a78d6` blue, `#eb6834` orange, `#1baf7a` aqua, `#eda100` yellow, `#e87ba4` magenta, `#008300` green, `#4a3aa7` violet, `#e34948` red | the same hues stepped for the dark surface | Each person's "line colour" (a 4px bar beside their name) and each project's swatch (a small square). A categorical palette checked for colour-blind separation in this fixed order; three light-mode hues sit under 3:1 contrast, so they always appear next to a name and charts always offer a table view |
+| `--progress-bar`, `--todo-bar` | `#d29b0f`, `#b4bbc8` | `#c98500`, `#4b566b` | Chart segments for In progress and To do (with `--late` and `--done` for Overdue and Done) |
 
 ## Type
 
@@ -47,6 +48,12 @@ Fixed rem scale, ratio about 1.2: 12 / 13 / 15 (body) / 18 / 26px.
 - **Buttons**: primary (ink fill), quiet (outline), link (underlined text), on-band (outline on the header).
 - **Focus**: 2px yellow ring hugging the control with a 2px ink ring outside it, readable on white and on the band.
 - **Empty states** say what will appear and how; filtered-empty offers "Clear filters". Loading uses skeleton rows.
+- **Row panel**: a row's title opens a panel under it with Details, Activity and Files tabs; admins get Edit and Delete there. Edit swaps the panel for the composer in edit mode. "Finished earlier" (done work past its date) is collapsed at the bottom, like departed trains.
+- **Toast**: one at a time, bottom centre, in the ink band with a yellow underline. Delete uses it for an 8 s Undo instead of a confirm dialog.
+- **Bell**: in the band; unread count in a yellow badge. Opens a dropdown panel (not a modal) with the latest ten, Mark all read and email settings.
+- **Files**: a dashed drop zone with a Choose files button, a progress bar per upload, and inline errors per file. A paperclip count shows on rows that have files.
+- **Reports**: one filter row (range presets, project, person) above everything it scopes; state lives in the URL. The KPI strip is one board divided by rules, never a row of cards. Charts use thin marks (bars at most 24px with 4px rounded ends, 2px lines, 8px dots with a surface ring), solid hairline grids, a legend for two or more series, a one-line text summary, and a "View as table" twin. The signal yellow marks only the current week. Charts never animate on load.
+- **Weekly report**: laid out like a printed bulletin (ink top rule, KPI row, ruled lists). A print stylesheet hides all app chrome so the browser's print gives a clean PDF.
 
 ## Motion
 
@@ -54,4 +61,4 @@ Fixed rem scale, ratio about 1.2: 12 / 13 / 15 (body) / 18 / 26px.
 
 ## Don'ts
 
-No modals for simple tasks, no pill badges, no coloured card edges, no gradients, no em or en dashes in copy, no icon set other than Phosphor (bold weight), no second accent colour.
+No modals for simple tasks, no pill badges, no coloured card edges, no gradients, no em or en dashes in copy, no icon set other than Phosphor (bold weight), no second accent colour, no dual-axis charts, no colour without a name or legend beside it.

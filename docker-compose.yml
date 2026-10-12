@@ -17,5 +17,14 @@ services:
       timeout: 3s
       retries: 10
 
+  # Catches all outgoing email locally. Web UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27
+    container_name: task-tracker-mail
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   pgdata:

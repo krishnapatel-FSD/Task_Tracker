@@ -94,3 +94,19 @@ export const tasks = pgTable(
 
 - Generate migrations with drizzle-kit generate and apply them with drizzle-kit migrate.
 - seed.ts inserts one admin and a few employees with bcrypt-hashed passwords.
+
+## 9. Phase 2 additions
+
+Migrations `0001` to `0004` in `server/src/db/migrations/`. The Drizzle source of truth is `server/src/db/schema.ts`.
+
+| Table | Purpose | Key columns |
+| --- | --- | --- |
+| projects | Every task belongs to one | name (unique), description, colour_index (0 to 7), archived_at |
+| tasks (changed) | | project_id (not null; existing tasks were moved into "General"), completed_at (set on done, cleared on leaving done), archived_at and archived_by (soft delete). updated_at now changes on every edit |
+| task_events | Activity log, one row per change, written in the change's transaction | task_id, actor_id, type (created, updated, reassigned, status_changed, archived, restored, attachment_added, attachment_removed), data (jsonb) |
+| notifications | In-app notifications and the email outbox | user_id, type, task_id, event_id, title, body, link, dedupe_key (unique per user when set), deliver_after (holds a delete for the Undo window), read_at, emailed_at |
+| notification_preferences | Email settings per person | email_enabled, email_frequency (instant or daily) |
+| attachments | Files on tasks | task_id, uploader_id, file_name (display only), storage_key (random, unique), mime_type, size_bytes, deleted_at, purged_at |
+| weekly_reports | Frozen weekly snapshots | week_start (unique Monday), week_end, generated_by (null when scheduled), status (ready or failed), data (jsonb) |
+
+New indexes: tasks(project_id), tasks(completed_at), tasks(deadline) where archived_at is null, task_events(task_id, created_at), notifications(user_id, read_at, created_at desc), notifications outbox (created_at where emailed_at is null), attachments(task_id) where deleted_at is null.

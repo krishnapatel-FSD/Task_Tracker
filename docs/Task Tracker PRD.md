@@ -58,7 +58,9 @@ A new task starts as To Do.
 
 ## 7. Out of scope
 
-Sign-up, password reset, user management screens, editing or deleting tasks, comments, notifications, search, pagination, reports.
+Sign-up, password reset, user management screens, comments, search.
+
+Phase 2 (see the Phase 2 plan) added what was previously out of scope here: projects, editing, reassigning and deleting tasks (soft delete with Undo), an activity log, notifications (in-app and email), file attachments, admin reports with charts and CSV export, and a weekly report. Employees still only change status and add files to their own tasks.
 
 ## 8. Assumptions and open questions
 

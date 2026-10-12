@@ -105,3 +105,13 @@ seed.ts inserts one admin and a few employees with bcrypt-hashed passwords. This
 - AdminTasks: filters for status and assignee, task list, Create task form.
 - EmployeeTasks: status filter, own task list, status dropdown per task.
 - A 401 response clears the stored session and returns to login.
+
+## 11. Phase 2 additions
+
+- **API**: the full, current endpoint table is in the README. New areas: projects, task edit/delete/restore, task events, attachments, notifications and preferences, reports and weekly reports.
+- **Transactions**: every task change writes its activity event and its notifications in one transaction (`services/taskEvents.ts` fans events out to `services/notificationService.ts`).
+- **Jobs**: node-cron in `server/src/jobs/`, started from `index.ts` only, each behind a Postgres advisory lock. Email goes out after commit through an outbox, so a mail failure never breaks a request.
+- **Files**: multer (memory, 10 MB), extension allowlist plus byte sniffing with `file-type`, random storage keys behind a storage interface (local disk now), downloads only through an authenticated route with `Content-Disposition: attachment` and `nosniff`.
+- **Reports**: metric definitions live once in `services/reportService.ts` (SQL aggregates in REPORT_TZ) and feed the charts, CSV exports and the weekly snapshot. CSV cells that look like formulas are prefixed with a quote.
+- **Client**: Recharts is lazy-loaded on `/admin/reports` only; report state lives in the URL.
+- **New configuration**: `APP_URL`, `REPORT_TZ`, `SMTP_URL`, `MAIL_FROM`, `JOBS_ENABLED`, `UPLOAD_DIR`, `MAX_UPLOAD_MB`.
