@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity } from '../components/Activity';
 import { Files } from '../components/Files';
+import { Checklist } from '../components/Checklist';
 import { Comments } from '../components/Comments';
 import { Notes } from '../components/Notes';
 import { TaskComposer } from '../components/TaskComposer';
@@ -205,6 +206,14 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
         <p className="panel-description">{task.description}</p>
         {task.completedAt && <p className="panel-stamp">Finished {formatDateTime(task.completedAt)}.</p>}
       </section>
+
+      <Checklist
+        taskId={task.id}
+        canEdit={canChange}
+        onCountChange={(checklistTotal, checklistDone) =>
+          (checklistTotal !== task.checklistTotal || checklistDone !== task.checklistDone) && onPatch(task.id, { checklistTotal, checklistDone })
+        }
+      />
 
       {isAdmin && (
         <div className="panel-admin">

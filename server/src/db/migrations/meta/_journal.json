@@ -50,6 +50,13 @@
       "when": 1791962282997,
       "tag": "0006_task_comments",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791963711466,
+      "tag": "0007_templates_checklists",
+      "breakpoints": true
     }
   ]
 }

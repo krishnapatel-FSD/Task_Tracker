@@ -38,6 +38,7 @@ export interface Project extends ProjectRef {
   createdAt: string;
   openTasks: number;
   totalTasks: number;
+  skipWeekends: boolean;
 }
 
 export interface Task {
@@ -55,6 +56,54 @@ export interface Task {
   attachmentCount: number;
   noteCount: number;
   commentCount: number;
+  checklistTotal: number;
+  checklistDone: number;
+  templateId: string | null;
+  /** Made by a repeat schedule. */
+  repeats: boolean;
+}
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+  doneAt: string | null;
+  doneBy: Employee | null;
+}
+
+export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'interval';
+
+export interface TemplateInput {
+  name: string;
+  title: string;
+  description: string;
+  projectId: string;
+  assigneeId: string | null;
+  priority: Priority;
+  checklist: string[];
+  repeat: Repeat;
+  weekdays: number[];
+  monthDay: number | null;
+  intervalDays: number | null;
+  startDate: string;
+  endDate: string | null;
+  leadDays: number;
+  paused: boolean;
+}
+
+export interface Template extends TemplateInput {
+  id: string;
+  project: ProjectRef;
+  assignee: Employee | null;
+  /** "Every Monday and Thursday" */
+  schedule: string;
+  nextDeadline: string | null;
+  lastDeadline: string | null;
+}
+
+export interface Holiday {
+  date: string;
+  name: string;
 }
 
 /** Anyone who can be @mentioned. */

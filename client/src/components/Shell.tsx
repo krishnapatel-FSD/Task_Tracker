@@ -1,4 +1,4 @@
-import { Bell, ChartBar, CheckSquareOffset, FolderSimple, GearSix, ListChecks, UsersThree, SignOut } from '@phosphor-icons/react';
+import { Bell, ChartBar, CheckSquareOffset, FolderSimple, GearSix, ListChecks, Repeat, UsersThree, SignOut } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -36,6 +36,7 @@ export function Shell({ children }: { children: ReactNode }) {
         { to: '/projects', label: 'Projects', icon: <FolderSimple size={20} weight="bold" /> },
         { to: '/admin/tasks', label: 'All tasks', short: 'Tasks', icon: <ListChecks size={20} weight="bold" /> },
         { to: '/admin/reports', label: 'Reports', icon: <ChartBar size={20} weight="bold" /> },
+        { to: '/admin/templates', label: 'Templates', short: 'Repeats', icon: <Repeat size={20} weight="bold" /> },
         { to: '/admin/projects', label: 'Manage projects', short: 'Manage', icon: <GearSix size={20} weight="bold" /> },
         { to: '/notifications', label: 'Notifications', icon: <Bell size={20} weight="bold" />, badge: count },
       ]

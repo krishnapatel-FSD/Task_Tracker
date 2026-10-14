@@ -62,11 +62,18 @@ export async function cleanupProjects(projectIds: string[]) {
     const [{ exists }] = (await db.execute(sql`select to_regclass(${table}) is not null as exists`)).rows as { exists: boolean }[];
     if (exists) await db.execute(sql`delete from ${sql.identifier(table)} where comment_id in ${commentIds}`);
   }
-  for (const table of ['notifications', 'attachments', 'task_notes', 'task_comments']) {
+  for (const table of ['notifications', 'attachments', 'task_notes', 'task_comments', 'task_checklist_items', 'task_occurrences']) {
     const [{ exists }] = (await db.execute(sql`select to_regclass(${table}) is not null as exists`)).rows as { exists: boolean }[];
     if (exists) await db.execute(sql`delete from ${sql.identifier(table)} where task_id in ${taskIds}`);
   }
   await db.execute(sql`delete from task_events where task_id in ${taskIds}`);
   await db.execute(sql`delete from tasks where project_id in (${ids})`);
+  // Templates and days off belong to the project; tasks (deleted above) pointed at the templates.
+  for (const [table, column] of [['task_occurrences', 'template_id'], ['task_templates', 'id']] as const) {
+    const [{ exists }] = (await db.execute(sql`select to_regclass(${table}) is not null as exists`)).rows as { exists: boolean }[];
+    if (exists) await db.execute(sql`delete from ${sql.identifier(table)} where ${sql.identifier(column)} in (select id from task_templates where project_id in (${ids}))`);
+  }
+  const [{ exists: hasHolidays }] = (await db.execute(sql`select to_regclass('project_holidays') is not null as exists`)).rows as { exists: boolean }[];
+  if (hasHolidays) await db.execute(sql`delete from project_holidays where project_id in (${ids})`);
   await db.execute(sql`delete from projects where id in (${ids})`);
 }

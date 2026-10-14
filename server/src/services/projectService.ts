@@ -1,6 +1,6 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import { db, type DbOrTx } from '../db/index.js';
-import { notifications, projects, tasks } from '../db/schema.js';
+import { notifications, projectHolidays, projects, tasks } from '../db/schema.js';
 import { todayIn } from '../lib/dates.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import type { CreateProjectInput, UpdateProjectInput } from '../validation/schemas.js';
@@ -24,6 +24,7 @@ export async function listAllProjects() {
       name: projects.name,
       description: projects.description,
       colourIndex: projects.colourIndex,
+      skipWeekends: projects.skipWeekends,
       archivedAt: projects.archivedAt,
       createdAt: projects.createdAt,
       openTasks: sql<number>`count(${tasks.id}) filter (where ${tasks.status} <> 'done')`.mapWith(Number),
@@ -126,8 +127,39 @@ export async function updateProject(id: string, input: UpdateProjectInput) {
       ...(input.description !== undefined && { description: input.description }),
       ...(input.colourIndex !== undefined && { colourIndex: input.colourIndex }),
       ...(input.archived !== undefined && { archivedAt: input.archived ? new Date() : null }),
+      ...(input.skipWeekends !== undefined && { skipWeekends: input.skipWeekends }),
     })
     .where(eq(projects.id, id))
     .returning();
   return updated;
+}
+
+// ---- Days off (used by repeat schedules) ----------------------------------------
+
+async function assertProject(id: string) {
+  const [p] = await db.select({ id: projects.id }).from(projects).where(eq(projects.id, id)).limit(1);
+  if (!p) throw notFound('Project not found');
+}
+
+export async function listHolidays(projectId: string) {
+  await assertProject(projectId);
+  return db
+    .select({ date: projectHolidays.date, name: projectHolidays.name })
+    .from(projectHolidays)
+    .where(eq(projectHolidays.projectId, projectId))
+    .orderBy(asc(projectHolidays.date));
+}
+
+export async function addHoliday(projectId: string, input: { date: string; name: string }) {
+  await assertProject(projectId);
+  await db
+    .insert(projectHolidays)
+    .values({ projectId, ...input })
+    .onConflictDoUpdate({ target: [projectHolidays.projectId, projectHolidays.date], set: { name: input.name } });
+  return listHolidays(projectId);
+}
+
+export async function removeHoliday(projectId: string, date: string) {
+  await db.delete(projectHolidays).where(and(eq(projectHolidays.projectId, projectId), eq(projectHolidays.date, date)));
+  return listHolidays(projectId);
 }

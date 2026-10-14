@@ -1,5 +1,7 @@
 import type {
   Attachment,
+  ChecklistItem,
+  Holiday,
   CommentRevision,
   CompletionNote,
   Employee,
@@ -16,6 +18,8 @@ import type {
   TaskInput,
   TaskNote,
   TaskTimeline,
+  Template,
+  TemplateInput,
   User,
 } from './types';
 
@@ -94,6 +98,35 @@ export const api = {
 
   listPeople: () => request<Person[]>('/users/people'),
 
+  listChecklist: (taskId: string) => request<ChecklistItem[]>(`/tasks/${taskId}/checklist`),
+
+  addChecklistItem: (taskId: string, text: string) =>
+    request<{ id: string }>(`/tasks/${taskId}/checklist`, { method: 'POST', body: JSON.stringify({ text }) }),
+
+  updateChecklistItem: (id: string, changes: { text?: string; done?: boolean }) =>
+    request<null>(`/checklist/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
+
+  deleteChecklistItem: (id: string) => request<null>(`/checklist/${id}`, { method: 'DELETE' }),
+
+  listTemplates: () => request<Template[]>('/templates'),
+
+  createTemplate: (input: TemplateInput) => request<{ id: string }>('/templates', { method: 'POST', body: JSON.stringify(input) }),
+
+  updateTemplate: (id: string, input: TemplateInput) =>
+    request<{ id: string }>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+
+  deleteTemplate: (id: string) => request<null>(`/templates/${id}`, { method: 'DELETE' }),
+
+  previewSchedule: (rule: Pick<TemplateInput, 'projectId' | 'repeat' | 'weekdays' | 'monthDay' | 'intervalDays' | 'startDate' | 'endDate'>) =>
+    request<{ schedule: string; dates: string[] }>('/templates/preview', { method: 'POST', body: JSON.stringify(rule) }),
+
+  listHolidays: (projectId: string) => request<Holiday[]>(`/projects/${projectId}/holidays`),
+
+  addHoliday: (projectId: string, date: string, name: string) =>
+    request<Holiday[]>(`/projects/${projectId}/holidays`, { method: 'POST', body: JSON.stringify({ date, name }) }),
+
+  removeHoliday: (projectId: string, date: string) => request<Holiday[]>(`/projects/${projectId}/holidays/${date}`, { method: 'DELETE' }),
+
   listComments: (taskId: string) => request<TaskComment[]>(`/tasks/${taskId}/comments`),
 
   addComment: (taskId: string, body: string, mentionIds: string[]) =>
@@ -117,7 +150,7 @@ export const api = {
     return request<Task[]>(`/tasks${qs ? `?${qs}` : ''}`);
   },
 
-  createTask: (input: TaskInput) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  createTask: (input: TaskInput & { checklist?: string[]; templateId?: string }) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(input) }),
 
   updateTask: (id: string, changes: Partial<TaskInput>) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
@@ -142,7 +175,7 @@ export const api = {
   createProject: (input: { name: string; description?: string }) =>
     request<Project>('/projects', { method: 'POST', body: JSON.stringify(input) }),
 
-  updateProject: (id: string, changes: { name?: string; description?: string | null; archived?: boolean }) =>
+  updateProject: (id: string, changes: { name?: string; description?: string | null; archived?: boolean; skipWeekends?: boolean }) =>
     request<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
 
   listAttachments: (taskId: string) => request<Attachment[]>(`/tasks/${taskId}/attachments`),

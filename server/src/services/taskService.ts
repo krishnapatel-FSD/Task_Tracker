@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, isNotNull, sql, type SQL } from 'drizzle-orm';
-import { db, type DbOrTx } from '../db/index.js';
-import { projects, taskEvents, taskNotes, tasks, users } from '../db/schema.js';
+import { db, type DbOrTx, type Tx } from '../db/index.js';
+import { projects, taskChecklistItems, taskEvents, taskNotes, tasks, users } from '../db/schema.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import type { AuthUser } from '../lib/jwt.js';
 import type { CreateTaskInput, ListTasksQuery, UpdateStatusInput, UpdateTaskInput } from '../validation/schemas.js';
@@ -23,6 +23,11 @@ const taskFields = {
   attachmentCount: sql<number>`(select count(*) from attachments a where a.task_id = ${tasks.id} and a.deleted_at is null)`.mapWith(Number),
   noteCount: sql<number>`(select count(*) from task_notes n where n.task_id = ${tasks.id})`.mapWith(Number),
   commentCount: sql<number>`(select count(*) from task_comments c where c.task_id = ${tasks.id} and c.deleted_at is null)`.mapWith(Number),
+  checklistTotal: sql<number>`(select count(*) from task_checklist_items i where i.task_id = ${tasks.id})`.mapWith(Number),
+  checklistDone: sql<number>`(select count(*) from task_checklist_items i where i.task_id = ${tasks.id} and i.done_at is not null)`.mapWith(Number),
+  templateId: tasks.templateId,
+  /** Made by a repeat schedule (shows a "Repeats" badge). */
+  repeats: sql<boolean>`exists (select 1 from task_occurrences o where o.task_id = ${tasks.id})`,
 };
 
 function selectTasks(conn: DbOrTx = db) {
@@ -79,14 +84,26 @@ export async function listTasks(caller: AuthUser, query: ListTasksQuery) {
 }
 
 export async function createTask(caller: AuthUser, input: CreateTaskInput) {
-  return db.transaction(async (tx) => {
+  return db.transaction(async (tx) => insertTask(tx, caller.id, input));
+}
+
+/**
+ * Creates a task with its starting checklist and writes the "created" event, inside the
+ * caller's transaction. Shared by the New task form and the repeat schedule job.
+ */
+export async function insertTask(tx: Tx, actorId: string, input: CreateTaskInput) {
+  {
     await assertEmployee(tx, input.assigneeId);
     await assertActiveProject(tx, input.projectId);
 
-    const [created] = await tx.insert(tasks).values(input).returning({ id: tasks.id });
+    const { checklist, ...fields } = input;
+    const [created] = await tx.insert(tasks).values(fields).returning({ id: tasks.id });
+    if (checklist?.length) {
+      await tx.insert(taskChecklistItems).values(checklist.map((text, position) => ({ taskId: created.id, text, position })));
+    }
     await recordEvent(tx, {
       taskId: created.id,
-      actorId: caller.id,
+      actorId,
       type: 'created',
       data: {
         title: input.title,
@@ -97,7 +114,7 @@ export async function createTask(caller: AuthUser, input: CreateTaskInput) {
       },
     });
     return (await getTaskById(created.id, tx))!;
-  });
+  }
 }
 
 const EDITABLE = ['title', 'description', 'priority', 'deadline', 'projectId'] as const;

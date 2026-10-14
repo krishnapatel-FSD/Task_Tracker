@@ -3709,3 +3709,304 @@ th[aria-sort] .sort-button {
   font-size: var(--text-xs);
   color: var(--ink-3);
 }
+
+/* ---------- Checklist in a task ---------- */
+
+.checklist-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.checklist-progress {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.checklist-bar {
+  margin-top: 0.4rem;
+}
+.checklist-items {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.checklist-items li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.25rem;
+  border-bottom: 1px solid var(--container);
+}
+.checklist-items label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  cursor: pointer;
+}
+.checklist-items input[type='checkbox'] {
+  width: 1.05rem;
+  min-height: 0;
+  height: 1.05rem;
+  padding: 0;
+  box-shadow: none;
+}
+.checklist-text {
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+.checklist-items li.is-done .checklist-text {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+.checklist-by {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.checklist-remove {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+.checklist-add {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.checklist-add input {
+  flex: 1;
+  min-width: 0;
+}
+.row-files.is-complete {
+  color: var(--done);
+}
+
+/* ---------- Templates ---------- */
+
+.template-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.template-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+.template-row.is-editing {
+  display: block;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.template-row.is-paused .template-name {
+  color: var(--ink-2);
+}
+.template-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.template-title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.template-name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.014em;
+}
+.template-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.12rem 0.55rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--progress-ink);
+  background: var(--progress-soft);
+  border-radius: var(--radius-pill);
+}
+.template-badge.is-paused {
+  color: var(--ink-2);
+  background: var(--container);
+}
+.template-meta {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.template-next {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.template-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+.template-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.1rem 1.1rem 1.2rem;
+  background: var(--surface);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
+}
+.template-step-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.template-step-list li {
+  font-size: var(--text-md);
+}
+.template-step-list li > * {
+  vertical-align: middle;
+}
+.template-step-list .icon-button {
+  width: 1.6rem;
+  height: 1.6rem;
+  margin-left: 0.35rem;
+}
+.template-repeat {
+  gap: 0.6rem;
+}
+.template-repeat > select {
+  max-width: 16rem;
+}
+.weekday-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.weekday {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-width: 3rem;
+  height: 2.1rem;
+  padding: 0 0.6rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink-2);
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-panel);
+  cursor: pointer;
+}
+.weekday input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.weekday.is-on {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+.weekday:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.inline-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-md);
+}
+.inline-field input {
+  width: 5rem;
+}
+.template-dates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+.schedule-preview {
+  padding: 0.6rem 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--lit-ink);
+  background: color-mix(in oklab, var(--lit-tint) 55%, var(--ground));
+  border-radius: var(--radius-control);
+}
+.composer-template select {
+  max-width: 22rem;
+}
+
+/* ---------- Days off per project ---------- */
+
+.days-off {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--sunken);
+  border-radius: var(--radius-control);
+}
+.project-row:has(.days-off) {
+  flex-wrap: wrap;
+}
+.days-off-weekends {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+.days-off-weekends input {
+  width: 1.05rem;
+  height: 1.05rem;
+  min-height: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.holiday-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.holiday-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: var(--text-sm);
+}
+.holiday-date {
+  min-width: 7rem;
+  font-weight: 600;
+}
+.holiday-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.holiday-add input[type='date'] {
+  width: auto;
+}
+.holiday-add input:not([type='date']) {
+  flex: 1;
+  min-width: 10rem;
+}

@@ -11,7 +11,7 @@ import {
   type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { DotsSixVertical, ChatCircle, NotePencil, Paperclip } from '@phosphor-icons/react';
+import { DotsSixVertical, ChatCircle, ListChecks, Repeat, NotePencil, Paperclip } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { daysUntil, isLate, lineIndexFor, todayIso } from '../timetable';
 import { STATUS_LABELS, STATUSES, type Status, type Task } from '../types';
@@ -182,6 +182,19 @@ function Card({ task, showAssignee, employeeIds, lit, selectedId, updatingId, ca
           {task.project.name}
         </span>
         <PriorityTag priority={task.priority} />
+        {task.repeats && (
+          <span className="row-files" title="Made by a repeat schedule">
+            <Repeat size={13} weight="bold" aria-hidden="true" />
+            Repeats
+          </span>
+        )}
+        {task.checklistTotal > 0 && (
+          <span className={`row-files${task.checklistDone === task.checklistTotal ? ' is-complete' : ''}`} title="Checklist">
+            <ListChecks size={13} weight="bold" aria-hidden="true" />
+            {task.checklistDone}/{task.checklistTotal}
+            <span className="sr-only"> checklist items done</span>
+          </span>
+        )}
         {task.commentCount > 0 && (
           <span className="row-files" title={`${task.commentCount} comment${task.commentCount === 1 ? '' : 's'}`}>
             <ChatCircle size={13} weight="bold" aria-hidden="true" />

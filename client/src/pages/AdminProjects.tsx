@@ -1,8 +1,9 @@
-import { Plus } from '@phosphor-icons/react';
+import { Plus, X } from '@phosphor-icons/react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api';
 import { EmptyState, ErrorBanner } from '../components/PageStates';
-import type { Project } from '../types';
+import { formatDay } from '../format';
+import type { Holiday, Project } from '../types';
 
 export function AdminProjects() {
   const [projects, setProjects] = useState<Project[] | null>(null);
@@ -83,6 +84,7 @@ function ProjectList({ projects, onChanged }: { projects: Project[]; onChanged: 
 
 function ProjectRow({ project, onChanged }: { project: Project; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
+  const [daysOff, setDaysOff] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,11 +133,93 @@ function ProjectRow({ project, onChanged }: { project: Project; onChanged: () =>
             Rename
           </button>
         )}
+        {!project.archivedAt && (
+          <button type="button" className="btn btn-quiet btn-small" aria-expanded={daysOff} onClick={() => setDaysOff((v) => !v)}>
+            Days off
+          </button>
+        )}
         <button type="button" className="btn btn-link" onClick={toggleArchive} disabled={busy}>
           {project.archivedAt ? 'Restore' : 'Archive'}
         </button>
       </div>
+      {daysOff && <DaysOff project={project} onChanged={onChanged} />}
     </li>
+  );
+}
+
+/** Weekends and holidays for this project: repeating tasks never fall due on them. */
+function DaysOff({ project, onChanged }: { project: Project; onChanged: () => void }) {
+  const [holidays, setHolidays] = useState<Holiday[] | null>(null);
+  const [date, setDate] = useState('');
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.listHolidays(project.id).then(setHolidays).catch(() => setHolidays([]));
+  }, [project.id]);
+
+  async function attempt(action: () => Promise<Holiday[] | void>) {
+    setError(null);
+    try {
+      const next = await action();
+      if (next) setHolidays(next);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "We couldn't save that.");
+    }
+  }
+
+  return (
+    <div className="days-off">
+      <label className="days-off-weekends">
+        <input
+          type="checkbox"
+          checked={project.skipWeekends}
+          onChange={() => attempt(async () => {
+            await api.updateProject(project.id, { skipWeekends: !project.skipWeekends });
+            onChanged();
+          })}
+        />
+        Weekends are days off
+      </label>
+      <p className="field-hint">Repeating tasks that would fall due on a day off move to the next working day.</p>
+      {holidays && holidays.length > 0 && (
+        <ul className="holiday-list">
+          {holidays.map((h) => (
+            <li key={h.date}>
+              <span className="holiday-date">{formatDay(h.date)}</span>
+              <span>{h.name}</span>
+              <button type="button" className="icon-button" aria-label={`Remove ${h.name}`} onClick={() => attempt(() => api.removeHoliday(project.id, h.date))}>
+                <X size={14} weight="bold" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="holiday-add"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!date || !name.trim()) {
+            setError('Pick a date and give the day off a name.');
+            return;
+          }
+          attempt(async () => {
+            const next = await api.addHoliday(project.id, date, name.trim());
+            setDate('');
+            setName('');
+            return next;
+          });
+        }}
+      >
+        <input type="date" value={date} aria-label="Day off" onChange={(e) => setDate(e.target.value)} />
+        <input value={name} maxLength={100} placeholder="For example: Diwali" aria-label="Name of the day off" onChange={(e) => setName(e.target.value)} />
+        <button type="submit" className="btn btn-quiet btn-small">
+          <Plus size={14} weight="bold" aria-hidden="true" />
+          Add day off
+        </button>
+      </form>
+      {error && <p className="field-error">{error}</p>}
+    </div>
   );
 }
 
