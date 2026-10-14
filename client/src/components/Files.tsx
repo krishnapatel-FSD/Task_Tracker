@@ -17,7 +17,8 @@ interface Upload {
 }
 
 /** Files on a task. The server re-checks every rule; these checks just save a round trip. */
-export function Files({ taskId, onCountChange }: { taskId: string; onCountChange: (count: number) => void }) {
+/** `canEdit`: the admin or the assignee. Everyone else on the team can only read and download. */
+export function Files({ taskId, canEdit, onCountChange }: { taskId: string; canEdit: boolean; onCountChange: (count: number) => void }) {
   const { user } = useAuth();
   const [files, setFiles] = useState<Attachment[] | null>(null);
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -100,35 +101,37 @@ export function Files({ taskId, onCountChange }: { taskId: string; onCountChange
 
   return (
     <div className="files">
-      <div
-        className={`dropzone${dragging ? ' is-dragging' : ''}`}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-      >
-        <UploadSimple size={18} weight="bold" aria-hidden="true" />
-        <span>Drop files here or</span>
-        <button type="button" className="btn btn-quiet btn-small" onClick={() => inputRef.current?.click()}>
-          Choose files
-        </button>
-        <span className="dropzone-hint">
-          PDF, images, Office, text or zip. Up to {MAX_MB} MB each, {MAX_FILES} per task.
-        </span>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          hidden
-          accept={ALLOWED.map((e) => `.${e}`).join(',')}
-          onChange={(e) => {
-            uploadAll([...(e.target.files ?? [])]);
-            e.target.value = '';
+      {canEdit && (
+        <div
+          className={`dropzone${dragging ? ' is-dragging' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
           }}
-        />
-      </div>
+          onDragLeave={() => setDragging(false)}
+          onDrop={onDrop}
+        >
+          <UploadSimple size={18} weight="bold" aria-hidden="true" />
+          <span>Drop files here or</span>
+          <button type="button" className="btn btn-quiet btn-small" onClick={() => inputRef.current?.click()}>
+            Choose files
+          </button>
+          <span className="dropzone-hint">
+            PDF, images, Office, text or zip. Up to {MAX_MB} MB each, {MAX_FILES} per task.
+          </span>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            hidden
+            accept={ALLOWED.map((e) => `.${e}`).join(',')}
+            onChange={(e) => {
+              uploadAll([...(e.target.files ?? [])]);
+              e.target.value = '';
+            }}
+          />
+        </div>
+      )}
 
       {uploads.length > 0 && (
         <ul className="upload-list">
@@ -174,7 +177,7 @@ export function Files({ taskId, onCountChange }: { taskId: string; onCountChange
                 <button type="button" className="icon-button" onClick={() => download(f)} aria-label={`Download ${f.fileName}`}>
                   <DownloadSimple size={16} weight="bold" aria-hidden="true" />
                 </button>
-                {(user?.role === 'admin' || f.uploader.id === user?.id) && (
+                {canEdit && (user?.role === 'admin' || f.uploader.id === user?.id) && (
                   <button type="button" className="icon-button icon-danger" onClick={() => remove(f)} aria-label={`Remove ${f.fileName}`}>
                     <Trash size={16} weight="bold" aria-hidden="true" />
                   </button>

@@ -37,16 +37,14 @@ export async function listAllProjects() {
 
 /**
  * The projects home: one row per active project with counts of live tasks.
- * Admins see every project and team-wide counts; employees see only projects
- * where they have tasks, counted over their own tasks. `changedTasks` counts
+ * Counts are team-wide for everyone (the team board). Employees see only projects
+ * that have tasks; the admin also sees empty ones. `changedTasks` counts
  * tasks with unread notifications for the viewer.
  */
 export async function listProjectBoard(viewer: { id: string; role: 'admin' | 'employee' }) {
   const today = todayIn();
   const isAdmin = viewer.role === 'admin';
-  const taskJoin = isAdmin
-    ? and(eq(tasks.projectId, projects.id), isNull(tasks.archivedAt))
-    : and(eq(tasks.projectId, projects.id), isNull(tasks.archivedAt), eq(tasks.assigneeId, viewer.id));
+  const taskJoin = and(eq(tasks.projectId, projects.id), isNull(tasks.archivedAt));
   const open = sql`${tasks.status} <> 'done'`;
 
   const rows = await db
@@ -75,6 +73,7 @@ export async function listProjectBoard(viewer: { id: string; role: 'admin' | 'em
     .groupBy(projects.id)
     .orderBy(asc(projects.name));
 
+  // Employees see the projects that have work in them; the admin sees every project.
   return isAdmin ? rows : rows.filter((r) => r.totalTasks > 0);
 }
 

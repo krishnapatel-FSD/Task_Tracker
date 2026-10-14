@@ -17,6 +17,8 @@ interface Props {
   lit: Map<string, LitInfo>;
   selectedId: string | null;
   updatingId: string | null;
+  /** The admin and the assignee can change a task; the rest of the team only reads it. */
+  canChange: (task: Task) => boolean;
   flashId: string | null;
   onOpen: (task: Task) => void;
   onStatusChange: (task: Task, status: Status) => void;
@@ -100,7 +102,7 @@ export function TaskList(props: Props) {
   );
 }
 
-function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, updatingId, flashId, onOpen, onStatusChange }: Props & { task: Task }) {
+function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, updatingId, flashId, canChange, onOpen, onStatusChange }: Props & { task: Task }) {
   const late = isLate(task);
   const selected = selectedId === task.id;
   const litInfo = lit.get(task.id);
@@ -182,7 +184,11 @@ function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, upda
       </div>
 
       <div className="row-action">
-        <NextStepButton task={task} busy={updatingId === task.id} onChange={onStatusChange} />
+        {canChange(task) ? (
+          <NextStepButton task={task} busy={updatingId === task.id} onChange={onStatusChange} />
+        ) : (
+          <span className="row-readonly">View only</span>
+        )}
       </div>
     </li>
   );

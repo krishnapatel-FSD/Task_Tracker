@@ -64,7 +64,15 @@ export function App() {
             path="/tasks"
             element={
               <ProtectedRoute role="employee">
-                <TasksPage />
+                <TasksPage key="mine" scope="mine" />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/team"
+            element={
+              <ProtectedRoute role="employee">
+                <TasksPage key="team" scope="all" />
               </ProtectedRoute>
             }
           />

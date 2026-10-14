@@ -22,6 +22,8 @@ interface Props {
   state: PanelState;
   task: Task | null;
   isAdmin: boolean;
+  /** The admin or the assignee. Everyone else on the team sees the task read-only. */
+  canChange: boolean;
   employees: Employee[];
   projects: ProjectRef[];
   /** Set on a project page: new tasks start in this project and the pass skips the project link. */
@@ -109,7 +111,7 @@ export function TaskPanel(props: Props) {
   );
 }
 
-function TaskDetails({ task, isAdmin, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch }: Props & { task: Task }) {
+function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch }: Props & { task: Task }) {
   const [tab, setTab] = useState<'notes' | 'files' | 'activity'>(task.noteCount > 0 ? 'notes' : 'files');
   const onCountChange = useCallback(
     (attachmentCount: number) => attachmentCount !== task.attachmentCount && onPatch(task.id, { attachmentCount }),
@@ -175,18 +177,22 @@ function TaskDetails({ task, isAdmin, employees, currentProjectId, updating, onE
 
         <div className="pass-perforation" aria-hidden="true" />
 
-        <div className="pass-actions">
-          <NextStepButton task={task} busy={updating} onChange={onStatusChange} size="lg" />
-          <fieldset className="status-switch" disabled={updating}>
-            <legend className="sr-only">Set status</legend>
-            {STATUSES.map((s) => (
-              <label key={s} className={`status-option opt-${s}`}>
-                <input type="radio" name={`status-${task.id}`} checked={task.status === s} onChange={() => onStatusChange(task, s)} />
-                <span>{STATUS_LABELS[s]}</span>
-              </label>
-            ))}
-          </fieldset>
-        </div>
+        {canChange ? (
+          <div className="pass-actions">
+            <NextStepButton task={task} busy={updating} onChange={onStatusChange} size="lg" />
+            <fieldset className="status-switch" disabled={updating}>
+              <legend className="sr-only">Set status</legend>
+              {STATUSES.map((s) => (
+                <label key={s} className={`status-option opt-${s}`}>
+                  <input type="radio" name={`status-${task.id}`} checked={task.status === s} onChange={() => onStatusChange(task, s)} />
+                  <span>{STATUS_LABELS[s]}</span>
+                </label>
+              ))}
+            </fieldset>
+          </div>
+        ) : (
+          <p className="pass-readonly">Only {task.assignee.name} and the admin can change this task.</p>
+        )}
       </article>
 
       <section className="panel-section">
@@ -224,7 +230,7 @@ function TaskDetails({ task, isAdmin, employees, currentProjectId, updating, onE
           {tab === 'notes' ? (
             <Notes taskId={task.id} refreshKey={`${task.noteCount}`} />
           ) : tab === 'files' ? (
-            <Files taskId={task.id} onCountChange={onCountChange} />
+            <Files taskId={task.id} canEdit={canChange} onCountChange={onCountChange} />
           ) : (
             <Activity taskId={task.id} refreshKey={`${task.updatedAt}:${task.attachmentCount}`} />
           )}

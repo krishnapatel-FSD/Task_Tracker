@@ -1,14 +1,15 @@
-import { ArrowLeft, ArrowRight, ArrowsClockwise, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, ArrowsClockwise, Kanban, ListBullets, MagnifyingGlass, Plus, X } from '@phosphor-icons/react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState, ErrorBanner } from '../components/PageStates';
 import { useToast } from '../components/Toast';
-import type { CompletionNote, Employee, ProjectRef, Status, Task, TaskFilterValues } from '../types';
+import { PRIORITIES, PRIORITY_LABELS, type CompletionNote, type Employee, type Priority, type ProjectRef, type Status, type Task, type TaskFilterValues } from '../types';
 import { useProjects } from '../useProjects';
 import { useTasks } from '../useTasks';
 import { BoardTabs, matchesQuick, QUICK_LABELS, type QuickFilter } from './SummaryCards';
+import { KanbanBoard } from './KanbanBoard';
 import { TaskList } from './TaskList';
 import { TaskPanel, type PanelState } from './TaskPanel';
 import { useLit } from './useLit';
@@ -27,17 +28,42 @@ export function useClock() {
   return { day, time, iso: now.toISOString() };
 }
 
+type View = 'list' | 'board';
+const VIEW_KEY = 'tt-task-view';
+
+function savedView(): View {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'board' ? 'board' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
 /**
- * One task page for both roles. Admins see everyone's work and can create, edit and delete.
+ * One task page for both roles. The whole team can see every task; only the admin and the
+ * assignee can change one. `scope="mine"` is an employee's own list ("My tasks").
  * With `project`, the page shows only that project's tasks, in date order.
  */
-export function TasksPage({ project }: { project?: ProjectRef } = {}) {
+export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; scope?: 'mine' | 'all' } = {}) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const mineOnly = !isAdmin && scope === 'mine';
+  const canChange = (task: Task) => isAdmin || task.assignee.id === user?.id;
+  const [view, setViewState] = useState<View>(savedView);
+  const setView = (v: View) => {
+    setViewState(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // the choice is simply not remembered
+    }
+  };
+  const [priority, setPriority] = useState<Priority | ''>('');
   const toast = useToast();
   const projects = useProjects();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [serverFilters, setServerFilters] = useState<TaskFilterValues>({ status: '', assigneeId: '', projectId: project?.id ?? '' });
+  const ownId = mineOnly ? (user?.id ?? '') : '';
+  const [serverFilters, setServerFilters] = useState<TaskFilterValues>({ status: '', assigneeId: ownId, projectId: project?.id ?? '' });
   const [quick, setQuick] = useState<QuickFilter>('all');
   const [search, setSearch] = useState('');
   const [params, setParams] = useSearchParams();
@@ -53,8 +79,8 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
   const clock = useClock();
 
   useEffect(() => {
-    if (isAdmin) api.listEmployees().then(setEmployees).catch(() => setEmployees([]));
-  }, [isAdmin]);
+    api.listEmployees().then(setEmployees).catch(() => setEmployees([]));
+  }, []);
 
   // Links like ?task=<id> (from notifications) open that task.
   const linked = params.get('task');
@@ -93,15 +119,17 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
       tasks.filter(
         (t) =>
           matchesQuick(t, quick, litIds) &&
+          (!priority || t.priority === priority) &&
           (!needle || t.title.toLowerCase().includes(needle) || t.description.toLowerCase().includes(needle)),
       ),
-    [tasks, quick, needle, litIds],
+    [tasks, quick, needle, litIds, priority],
   );
 
   const selectedId = panel.kind === 'view' || panel.kind === 'edit' || panel.kind === 'complete' ? panel.id : null;
 
   // Marking a task done always asks for a note first, in the task panel.
   const requestStatus = (task: Task, status: Status) => {
+    if (!canChange(task)) return;
     if (status === 'done' && task.status !== 'done') {
       setPanel({ kind: 'complete', id: task.id });
       setUrlTask(task.id);
@@ -118,12 +146,14 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
     }
   };
   const selectedTask = selectedId ? (tasks.find((t) => t.id === selectedId) ?? null) : null;
-  const filtered = quick !== 'all' || needle !== '' || serverFilters.assigneeId !== '' || (!project && serverFilters.projectId !== '');
+  const filtered =
+    quick !== 'all' || needle !== '' || priority !== '' || serverFilters.assigneeId !== ownId || (!project && serverFilters.projectId !== '');
 
   function clearAll() {
     setQuick('all');
     setSearch('');
-    setServerFilters({ status: '', assigneeId: '', projectId: project?.id ?? '' });
+    setPriority('');
+    setServerFilters({ status: '', assigneeId: ownId, projectId: project?.id ?? '' });
   }
 
   async function deleteTask(task: Task) {
@@ -152,6 +182,30 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
     });
   }
 
+  const emptyState = filtered ? (
+    <EmptyState title="No tasks match.">
+      <button type="button" className="btn btn-quiet" onClick={clearAll}>
+        Show all tasks
+      </button>
+    </EmptyState>
+  ) : isAdmin ? (
+    <EmptyState title={project ? 'No tasks in this project yet.' : 'No tasks yet.'}>
+      <p>Create the first task and assign it to someone.</p>
+      <button type="button" className="btn btn-primary" onClick={() => setPanel({ kind: 'create' })}>
+        <Plus size={16} weight="bold" aria-hidden="true" />
+        New task
+      </button>
+    </EmptyState>
+  ) : mineOnly ? (
+    <EmptyState title="Nothing assigned to you yet.">
+      <p>When your admin gives you a task, it shows up here.</p>
+    </EmptyState>
+  ) : (
+    <EmptyState title="No tasks yet.">
+      <p>Tasks the admin creates show up here for the whole team.</p>
+    </EmptyState>
+  );
+
   return (
     <div className={`tasks-layout${panel.kind !== 'closed' ? ' has-panel' : ''}`}>
       <main className="tasks-main">
@@ -169,16 +223,16 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
                 {project.name}
               </h1>
             ) : (
-              <h1>{isAdmin ? 'All tasks' : 'My tasks'}</h1>
+              <h1>{mineOnly ? 'My tasks' : 'All tasks'}</h1>
             )}
             <p className="page-summary">
               {project
-                ? isAdmin
-                  ? 'Every task in this project, by date.'
-                  : 'Your tasks in this project, by date.'
-                : isAdmin
-                  ? 'Everyone’s work, in deadline order.'
-                  : 'Your work, in deadline order. The button on each task moves it forward.'}
+                ? 'Every task in this project, by date.'
+                : mineOnly
+                  ? 'Your work, in deadline order. The button on each task moves it forward.'
+                  : isAdmin
+                    ? 'Everyone’s work, in deadline order.'
+                    : 'The whole team’s work. You can change the tasks assigned to you.'}
             </p>
           </div>
           <div className="page-head-side">
@@ -231,7 +285,7 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
               </select>
             </label>
           )}
-          {isAdmin && (
+          {!mineOnly && (
             <label className="toolbar-select">
               <span className="sr-only">Person</span>
               <select value={serverFilters.assigneeId} onChange={(e) => setServerFilters((f) => ({ ...f, assigneeId: e.target.value }))}>
@@ -244,6 +298,27 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
               </select>
             </label>
           )}
+          <label className="toolbar-select">
+            <span className="sr-only">Priority</span>
+            <select value={priority} onChange={(e) => setPriority(e.target.value as Priority | '')}>
+              <option value="">Any priority</option>
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p}>
+                  {PRIORITY_LABELS[p]} priority
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="view-switch" role="group" aria-label="View">
+            <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')}>
+              <ListBullets size={16} weight="bold" aria-hidden="true" />
+              List
+            </button>
+            <button type="button" aria-pressed={view === 'board'} onClick={() => setView('board')}>
+              <Kanban size={16} weight="bold" aria-hidden="true" />
+              Board
+            </button>
+          </div>
           {filtered && (
             <button type="button" className="btn btn-link" onClick={clearAll}>
               <X size={14} weight="bold" aria-hidden="true" />
@@ -260,47 +335,45 @@ export function TasksPage({ project }: { project?: ProjectRef } = {}) {
 
         {error && <ErrorBanner message={error} onRetry={reload} />}
 
-        <TaskList
-          tasks={visible}
-          loading={loading}
-          grouped={quick === 'all' && !needle}
-          showAssignee={isAdmin}
-          byProject={Boolean(project)}
-          lit={lit}
-          employeeIds={employees.map((e) => e.id)}
-          selectedId={selectedId}
-          updatingId={updatingId}
-          flashId={flashId}
-          onOpen={openTask}
-          onStatusChange={requestStatus}
-          empty={
-            filtered ? (
-              <EmptyState title="No tasks match.">
-                <button type="button" className="btn btn-quiet" onClick={clearAll}>
-                  Show all tasks
-                </button>
-              </EmptyState>
-            ) : isAdmin ? (
-              <EmptyState title={project ? 'No tasks in this project yet.' : 'No tasks yet.'}>
-                <p>Create the first task and assign it to someone.</p>
-                <button type="button" className="btn btn-primary" onClick={() => setPanel({ kind: 'create' })}>
-                  <Plus size={16} weight="bold" aria-hidden="true" />
-                  New task
-                </button>
-              </EmptyState>
-            ) : (
-              <EmptyState title="Nothing assigned to you yet.">
-                <p>When your admin gives you a task, it shows up here.</p>
-              </EmptyState>
-            )
-          }
-        />
+        {view === 'board' ? (
+          <KanbanBoard
+            tasks={visible}
+            loading={loading}
+            showAssignee={!mineOnly}
+            lit={lit}
+            employeeIds={employees.map((e) => e.id)}
+            selectedId={selectedId}
+            updatingId={updatingId}
+            canChange={canChange}
+            onOpen={openTask}
+            onStatusChange={requestStatus}
+            empty={emptyState}
+          />
+        ) : (
+          <TaskList
+            tasks={visible}
+            loading={loading}
+            grouped={quick === 'all' && !needle}
+            showAssignee={!mineOnly}
+            byProject={Boolean(project)}
+            lit={lit}
+            employeeIds={employees.map((e) => e.id)}
+            selectedId={selectedId}
+            updatingId={updatingId}
+            flashId={flashId}
+            canChange={canChange}
+            onOpen={openTask}
+            onStatusChange={requestStatus}
+            empty={emptyState}
+          />
+        )}
       </main>
 
       <TaskPanel
         state={panel}
         task={selectedTask}
         isAdmin={isAdmin}
+        canChange={selectedTask ? canChange(selectedTask) : false}
         employees={employees}
         projects={projects}
         currentProjectId={project?.id}

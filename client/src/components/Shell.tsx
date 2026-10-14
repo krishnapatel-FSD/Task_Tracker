@@ -1,4 +1,4 @@
-import { Bell, ChartBar, CheckSquareOffset, FolderSimple, GearSix, ListChecks, SignOut } from '@phosphor-icons/react';
+import { Bell, ChartBar, CheckSquareOffset, FolderSimple, GearSix, ListChecks, UsersThree, SignOut } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -41,7 +41,8 @@ export function Shell({ children }: { children: ReactNode }) {
       ]
     : [
         { to: '/projects', label: 'Projects', icon: <FolderSimple size={20} weight="bold" /> },
-        { to: '/tasks', label: 'My tasks', icon: <ListChecks size={20} weight="bold" /> },
+        { to: '/tasks', label: 'My tasks', short: 'Mine', icon: <ListChecks size={20} weight="bold" /> },
+        { to: '/team', label: 'All tasks', short: 'Team', icon: <UsersThree size={20} weight="bold" /> },
         { to: '/notifications', label: 'Notifications', icon: <Bell size={20} weight="bold" />, badge: count },
       ];
   const initials = user.name

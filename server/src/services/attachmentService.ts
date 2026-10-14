@@ -65,7 +65,7 @@ async function detectType(fileName: string, data: Buffer) {
 }
 
 export async function listAttachments(caller: AuthUser, taskId: string) {
-  await loadTaskFor(caller, taskId, 'hide');
+  await loadTaskFor(caller, taskId, 'read');
   return db
     .select(attachmentFields)
     .from(attachments)
@@ -75,7 +75,7 @@ export async function listAttachments(caller: AuthUser, taskId: string) {
 }
 
 export async function addAttachment(caller: AuthUser, taskId: string, file: { originalname: string; buffer: Buffer; size: number }) {
-  await loadTaskFor(caller, taskId, 'forbid');
+  await loadTaskFor(caller, taskId, 'write');
   if (file.size === 0) throw badRequest('That file is empty.');
 
   const fileName = sanitiseFileName(file.originalname);
@@ -129,7 +129,7 @@ async function loadAttachmentFor(caller: AuthUser, id: string) {
     .where(and(eq(attachments.id, id), isNull(attachments.deletedAt), isNull(tasks.archivedAt)))
     .limit(1);
   if (!row) throw notFound('File not found');
-  await loadTaskFor(caller, row.taskId, 'hide').catch(() => {
+  await loadTaskFor(caller, row.taskId, 'read').catch(() => {
     throw notFound('File not found');
   });
   return row;
@@ -142,6 +142,8 @@ export async function openDownload(caller: AuthUser, id: string) {
 
 export async function removeAttachment(caller: AuthUser, id: string) {
   const row = await loadAttachmentFor(caller, id);
+  // Changing a task's files needs write access to the task, whoever uploaded them.
+  await loadTaskFor(caller, row.taskId, 'write');
   if (caller.role !== 'admin' && row.uploaderId !== caller.id) {
     throw forbidden('You can only remove files you uploaded');
   }

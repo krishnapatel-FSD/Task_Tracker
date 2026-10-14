@@ -81,8 +81,10 @@ describe('users', () => {
     assert.deepEqual(Object.keys(res.body[0]).sort(), ['id', 'name']);
   });
 
-  test('employee is 403', async () => {
-    assert.equal((await call('GET', '/users', { token: asha.token })).status, 403);
+  test('employees get the same list (names only) for the team board', async () => {
+    const res = await call('GET', '/users', { token: asha.token });
+    assert.equal(res.status, 200);
+    assert.deepEqual(Object.keys(res.body[0]).sort(), ['id', 'name']);
   });
 });
 
@@ -155,11 +157,12 @@ describe('task list', () => {
     assert.deepEqual(deadlines, [...deadlines].sort());
   });
 
-  test('employee only sees own tasks, even when passing another assigneeId', async () => {
-    const res = await call('GET', `/tasks?assigneeId=${ben.user.id}`, { token: asha.token });
-    assert.ok(res.body.some((t: { id: string }) => t.id === ashaTask.id));
-    assert.ok(res.body.every((t: { assignee: { id: string } }) => t.assignee.id === asha.user.id));
-    assert.ok(!res.body.some((t: { id: string }) => t.id === benTask.id));
+  test("employees see the whole team's tasks and can filter by person", async () => {
+    const all = await call('GET', '/tasks', { token: asha.token });
+    assert.ok(all.body.some((t: { id: string }) => t.id === ashaTask.id));
+    assert.ok(all.body.some((t: { id: string }) => t.id === benTask.id));
+    const bens = await call('GET', `/tasks?assigneeId=${ben.user.id}`, { token: asha.token });
+    assert.ok(bens.body.every((t: { assignee: { id: string } }) => t.assignee.id === ben.user.id));
   });
 
   test('filters combine', async () => {
@@ -281,7 +284,8 @@ describe('update status', () => {
       assert.equal(notes.body[0].minutesSpent, 90);
       assert.equal(notes.body[0].author.id, asha.user.id);
     }
-    assert.equal((await call('GET', `/tasks/${task.id}/notes`, { token: ben.token })).status, 404);
+    // the team board: other employees can read it too
+    assert.equal((await call('GET', `/tasks/${task.id}/notes`, { token: ben.token })).status, 200);
   });
 
   test('reopening keeps the note; finishing again adds another', async () => {
@@ -376,21 +380,21 @@ describe('edit and reassign', () => {
     assert.equal(events[0].actor.id, admin.user.id);
   });
 
-  test('the previous assignee loses access after reassignment', async () => {
+  test('the previous assignee can still read but no longer change it after reassignment', async () => {
     const task = await makeTask();
-    assert.equal((await eventsOf(task.id, asha.token)).status, 200);
     await call('PATCH', `/tasks/${task.id}`, { token: admin.token, body: { assigneeId: ben.user.id } });
 
-    assert.equal((await eventsOf(task.id, asha.token)).status, 404);
-    const list = await call('GET', '/tasks', { token: asha.token });
-    assert.ok(!list.body.some((t: { id: string }) => t.id === task.id));
+    assert.equal((await eventsOf(task.id, asha.token)).status, 200);
+    const mine = await call('GET', `/tasks?assigneeId=${asha.user.id}`, { token: asha.token });
+    assert.ok(!mine.body.some((t: { id: string }) => t.id === task.id));
     assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } })).status, 403);
     assert.equal((await eventsOf(task.id, ben.token)).status, 200);
   });
 
-  test("employees can't read another employee's timeline", async () => {
+  test("employees can read another employee's timeline but not change its status", async () => {
     const task = await makeTask({ assigneeId: ben.user.id });
-    assert.equal((await eventsOf(task.id, asha.token)).status, 404);
+    assert.equal((await eventsOf(task.id, asha.token)).status, 200);
+    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'in_progress' } })).status, 403);
   });
 });
 
@@ -461,11 +465,11 @@ describe('projects board', () => {
     assert.equal(row.nextDeadline, '2020-01-01');
   });
 
-  test('employee counts only their own tasks and changes', async () => {
+  test('employee sees team-wide counts and only their own changes', async () => {
     const res = await call('GET', '/projects?board=true', { token: asha.token });
     assert.equal(res.status, 200);
     const row = res.body.find((p: { id: string }) => p.id === boardProjectId);
-    assert.equal(row.totalTasks, 2);
+    assert.equal(row.totalTasks, 3);
     assert.equal(row.lateTasks, 1);
     // both tasks were assigned to Asha, so both carry an unread notification
     assert.equal(row.changedTasks, 2);

@@ -40,18 +40,19 @@ export async function getTaskById(id: string, conn: DbOrTx = db) {
 }
 
 /**
- * Loads a live task the caller may see. Archived or missing tasks are 404.
- * For an employee who is not the assignee: 404 when `hide`, 403 when `forbid`.
+ * Loads a live task. Archived or missing tasks are 404.
+ * Everyone signed in can `read` any task (the team board). Only the admin and the
+ * assignee can `write` to it (status, files); anyone else gets 403.
  */
-export async function loadTaskFor(caller: AuthUser, id: string, whenNotOwn: 'hide' | 'forbid', conn: DbOrTx = db) {
+export async function loadTaskFor(caller: AuthUser, id: string, access: 'read' | 'write', conn: DbOrTx = db) {
   const [task] = await conn
     .select({ id: tasks.id, assigneeId: tasks.assigneeId, title: tasks.title, status: tasks.status })
     .from(tasks)
     .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
     .limit(1);
   if (!task) throw notFound('Task not found');
-  if (caller.role !== 'admin' && task.assigneeId !== caller.id) {
-    throw whenNotOwn === 'hide' ? notFound('Task not found') : forbidden('You can only update your own tasks');
+  if (access === 'write' && caller.role !== 'admin' && task.assigneeId !== caller.id) {
+    throw forbidden('You can only update your own tasks');
   }
   return task;
 }
@@ -66,12 +67,8 @@ async function assertEmployee(conn: DbOrTx, userId: string) {
 export async function listTasks(caller: AuthUser, query: ListTasksQuery) {
   const conditions: SQL[] = [isNull(tasks.archivedAt)];
 
-  if (caller.role === 'employee') {
-    // Employees only ever see their own tasks; any assigneeId they send is ignored.
-    conditions.push(eq(tasks.assigneeId, caller.id));
-  } else if (query.assigneeId) {
-    conditions.push(eq(tasks.assigneeId, query.assigneeId));
-  }
+  // The whole team can see every task; "My tasks" is just the assignee filter.
+  if (query.assigneeId) conditions.push(eq(tasks.assigneeId, query.assigneeId));
   if (query.status) conditions.push(eq(tasks.status, query.status));
   if (query.projectId) conditions.push(eq(tasks.projectId, query.projectId));
 
@@ -154,7 +151,7 @@ export async function updateTask(caller: AuthUser, id: string, input: UpdateTask
 
 export async function updateTaskStatus(caller: AuthUser, taskId: string, { status, note }: UpdateStatusInput) {
   return db.transaction(async (tx) => {
-    const task = await loadTaskFor(caller, taskId, 'forbid', tx);
+    const task = await loadTaskFor(caller, taskId, 'write', tx);
     if (task.status === status) return (await getTaskById(taskId, tx))!;
 
     // Finishing a task always records what was done and how long it took.
@@ -214,7 +211,7 @@ export async function restoreTask(caller: AuthUser, id: string) {
 
 /** Notes on a task, newest first. Same visibility as the task: the admin and the assignee. */
 export async function listTaskNotes(caller: AuthUser, taskId: string) {
-  await loadTaskFor(caller, taskId, 'hide');
+  await loadTaskFor(caller, taskId, 'read');
   return db
     .select({
       id: taskNotes.id,
@@ -231,7 +228,7 @@ export async function listTaskNotes(caller: AuthUser, taskId: string) {
 
 /** The activity timeline, newest first. People and project names are resolved now, not stored. */
 export async function listTaskEvents(caller: AuthUser, taskId: string) {
-  await loadTaskFor(caller, taskId, 'hide');
+  await loadTaskFor(caller, taskId, 'read');
 
   const rows = await db
     .select({

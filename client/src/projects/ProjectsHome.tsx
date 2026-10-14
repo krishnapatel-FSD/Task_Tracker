@@ -73,7 +73,7 @@ export function ProjectsHome() {
             {rows !== null && <span className="page-count">{all.length} total</span>}
           </h1>
           <p className="page-summary">
-            {isAdmin ? 'Pick a project to see its tasks by date.' : 'The projects you have work in. Pick one to see your tasks by date.'}
+            Pick a project to see its tasks by date.
           </p>
         </div>
         <div className="page-head-side">

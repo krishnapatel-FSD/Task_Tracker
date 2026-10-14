@@ -129,22 +129,25 @@ describe('download', () => {
     assert.deepEqual(Buffer.from(await res.arrayBuffer()), PDF);
   });
 
-  test('needs a login and task access', async () => {
+  test('needs a login; the rest of the team can download but not change files', async () => {
     const task = await makeTask();
     const { body } = await upload(admin.token, task.id, 'brief.pdf', PDF);
     assert.equal((await rawFetch(`/attachments/${body.id}/download`)).status, 401);
     const asBen = await rawFetch(`/attachments/${body.id}/download`, { headers: { Authorization: `Bearer ${ben.token}` } });
-    assert.equal(asBen.status, 404);
+    assert.equal(asBen.status, 200);
+    assert.equal((await upload(ben.token, task.id, 'nope.pdf', PDF)).status, 403);
+    assert.equal((await call('DELETE', `/attachments/${body.id}`, { token: ben.token })).status, 403);
   });
 
-  test('an employee reassigned away can no longer list or download', async () => {
+  test('an employee reassigned away can still read files but no longer remove their own', async () => {
     const task = await makeTask();
     const { body } = await upload(asha.token, task.id, 'mine.pdf', PDF);
     await call('PATCH', `/tasks/${task.id}`, { token: admin.token, body: { assigneeId: ben.user.id } });
 
     const res = await rawFetch(`/attachments/${body.id}/download`, { headers: { Authorization: `Bearer ${asha.token}` } });
-    assert.equal(res.status, 404);
-    assert.equal((await call('GET', `/tasks/${task.id}/attachments`, { token: asha.token })).status, 404);
+    assert.equal(res.status, 200);
+    assert.equal((await call('GET', `/tasks/${task.id}/attachments`, { token: asha.token })).status, 200);
+    assert.equal((await call('DELETE', `/attachments/${body.id}`, { token: asha.token })).status, 403);
     const asNewAssignee = await rawFetch(`/attachments/${body.id}/download`, { headers: { Authorization: `Bearer ${ben.token}` } });
     assert.equal(asNewAssignee.status, 200);
   });
