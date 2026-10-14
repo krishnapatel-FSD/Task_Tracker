@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, PencilSimple, Trash, X } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, ArrowsLeftRight, PencilSimple, Trash, X } from '@phosphor-icons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity } from '../components/Activity';
@@ -11,6 +11,7 @@ import { formatDateTime } from '../format';
 import { lineIndexFor } from '../timetable';
 import { STATUS_LABELS, STATUSES, type CompletionNote, type Employee, type ProjectRef, type Status, type Task } from '../types';
 import { CompleteTask } from './CompleteTask';
+import { HandoffCard, HandoffForm } from './Handoff';
 import { Avatar, boardDate, boardDateText, dueLabel, NextStepButton, PriorityTag, StatusBadge, taskState } from './bits';
 
 export type PanelState =
@@ -18,6 +19,7 @@ export type PanelState =
   | { kind: 'view'; id: string }
   | { kind: 'edit'; id: string }
   | { kind: 'complete'; id: string }
+  | { kind: 'handoff'; id: string }
   | { kind: 'create' };
 
 interface Props {
@@ -40,6 +42,12 @@ interface Props {
   /** Mark done with the required completion note. */
   onComplete: (task: Task, note: CompletionNote) => void;
   onCancelComplete: (task: Task) => void;
+  /** Open the handoff form; then the result, or cancel. */
+  onHandoff: (task: Task) => void;
+  onHandedOff: (task: Task) => void;
+  onCancelHandoff: (task: Task) => void;
+  /** The receiver accepted a handoff. */
+  onAccepted: (task: Task) => void;
   onPatch: (id: string, patch: Partial<Task>) => void;
 }
 
@@ -108,12 +116,16 @@ export function TaskPanel(props: Props) {
         />
       )}
 
+      {state.kind === 'handoff' && task && (
+        <HandoffForm key={task.id} task={task} employees={props.employees} onCancel={() => props.onCancelHandoff(task)} onDone={props.onHandedOff} />
+      )}
+
       {state.kind === 'view' && task && <TaskDetails {...props} task={task} />}
     </aside>
   );
 }
 
-function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch }: Props & { task: Task }) {
+function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch, onHandoff, onAccepted }: Props & { task: Task }) {
   const [tab, setTab] = useState<'comments' | 'notes' | 'files' | 'activity'>(task.status === 'done' && task.noteCount > 0 ? 'notes' : 'comments');
   const onCommentCount = useCallback(
     (commentCount: number) => commentCount !== task.commentCount && onPatch(task.id, { commentCount }),
@@ -134,6 +146,8 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
 
   return (
     <div className="panel-body">
+      <HandoffCard task={task} onAccepted={onAccepted} />
+
       <article className="pass" aria-label="Task details">
         <header className="pass-band">
           <span className="pass-project">
@@ -197,7 +211,9 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
             </fieldset>
           </div>
         ) : (
-          <p className="pass-readonly">Only {task.assignee.name} and the admin can change this task.</p>
+          <p className="pass-readonly">
+            {task.handoffPending ? 'This task is waiting for its handoff to be accepted.' : `Only ${task.assignee.name} and the admin can change this task.`}
+          </p>
         )}
       </article>
 
@@ -215,16 +231,26 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
         }
       />
 
-      {isAdmin && (
+      {(isAdmin || canChange) && (
         <div className="panel-admin">
-          <button type="button" className="btn btn-quiet" onClick={() => onEdit(task)}>
-            <PencilSimple size={15} weight="bold" aria-hidden="true" />
-            Edit task
-          </button>
-          <button type="button" className="btn btn-danger-quiet" onClick={() => onDelete(task)}>
-            <Trash size={15} weight="bold" aria-hidden="true" />
-            Delete
-          </button>
+          {isAdmin && (
+            <button type="button" className="btn btn-quiet" onClick={() => onEdit(task)}>
+              <PencilSimple size={15} weight="bold" aria-hidden="true" />
+              Edit task
+            </button>
+          )}
+          {task.status !== 'done' && !task.handoffPending && (
+            <button type="button" className="btn btn-quiet" onClick={() => onHandoff(task)}>
+              <ArrowsLeftRight size={15} weight="bold" aria-hidden="true" />
+              Hand off
+            </button>
+          )}
+          {isAdmin && (
+            <button type="button" className="btn btn-danger-quiet" onClick={() => onDelete(task)}>
+              <Trash size={15} weight="bold" aria-hidden="true" />
+              Delete
+            </button>
+          )}
         </div>
       )}
 

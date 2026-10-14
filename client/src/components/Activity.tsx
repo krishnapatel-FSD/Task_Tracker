@@ -49,6 +49,10 @@ function describe(event: TaskEvent, name: (id: string) => string): string {
   switch (event.type) {
     case 'created':
       return `created this task for ${name(d.assigneeId)}`;
+    case 'handed_off':
+      return `handed this from ${name(d.fromId)} to ${name(d.toId)}`;
+    case 'handoff_accepted':
+      return 'accepted the handoff and took the task on';
     case 'reassigned':
       return `moved this from ${name(d.fromId)} to ${name(d.toId)}`;
     case 'status_changed':

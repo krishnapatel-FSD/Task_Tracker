@@ -57,6 +57,13 @@
       "when": 1791963711466,
       "tag": "0007_templates_checklists",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791979266900,
+      "tag": "0008_task_handoffs",
+      "breakpoints": true
     }
   ]
 }

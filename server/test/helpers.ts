@@ -62,7 +62,7 @@ export async function cleanupProjects(projectIds: string[]) {
     const [{ exists }] = (await db.execute(sql`select to_regclass(${table}) is not null as exists`)).rows as { exists: boolean }[];
     if (exists) await db.execute(sql`delete from ${sql.identifier(table)} where comment_id in ${commentIds}`);
   }
-  for (const table of ['notifications', 'attachments', 'task_notes', 'task_comments', 'task_checklist_items', 'task_occurrences']) {
+  for (const table of ['notifications', 'task_handoffs', 'attachments', 'task_notes', 'task_comments', 'task_checklist_items', 'task_occurrences']) {
     const [{ exists }] = (await db.execute(sql`select to_regclass(${table}) is not null as exists`)).rows as { exists: boolean }[];
     if (exists) await db.execute(sql`delete from ${sql.identifier(table)} where task_id in ${taskIds}`);
   }

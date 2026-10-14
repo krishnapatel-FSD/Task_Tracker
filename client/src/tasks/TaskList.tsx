@@ -1,4 +1,4 @@
-import { CaretDown, CaretRight, ChatCircle, ListChecks, Repeat, NotePencil, Paperclip } from '@phosphor-icons/react';
+import { CaretDown, CaretRight, ArrowsLeftRight, ChatCircle, ListChecks, Repeat, NotePencil, Paperclip } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { daysUntil, isLate, lineIndexFor, todayIso } from '../timetable';
 import type { Status, Task } from '../types';
@@ -19,6 +19,8 @@ interface Props {
   updatingId: string | null;
   /** The admin and the assignee can change a task; the rest of the team only reads it. */
   canChange: (task: Task) => boolean;
+  /** The signed-in person, to offer "Review handoff" on tasks handed to them. */
+  meId?: string;
   flashId: string | null;
   onOpen: (task: Task) => void;
   onStatusChange: (task: Task, status: Status) => void;
@@ -102,7 +104,7 @@ export function TaskList(props: Props) {
   );
 }
 
-function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, updatingId, flashId, canChange, onOpen, onStatusChange }: Props & { task: Task }) {
+function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, updatingId, flashId, canChange, meId, onOpen, onStatusChange }: Props & { task: Task }) {
   const late = isLate(task);
   const selected = selectedId === task.id;
   const litInfo = lit.get(task.id);
@@ -153,6 +155,12 @@ function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, upda
             </span>
           )}
           <PriorityTag priority={task.priority} />
+          {task.handoffPending && (
+            <span className="handoff-pill">
+              <ArrowsLeftRight size={12} weight="bold" aria-hidden="true" />
+              Handoff waiting
+            </span>
+          )}
           {task.repeats && (
             <span className="row-files" title="Made by a repeat schedule">
               <Repeat size={13} weight="bold" aria-hidden="true" />
@@ -206,6 +214,17 @@ function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, upda
       <div className="row-action">
         {canChange(task) ? (
           <NextStepButton task={task} busy={updatingId === task.id} onChange={onStatusChange} />
+        ) : task.handoffPending && task.assignee.id === meId ? (
+          <button
+            type="button"
+            className="btn btn-primary btn-small"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen(task);
+            }}
+          >
+            Review handoff
+          </button>
         ) : (
           <span className="row-readonly">View only</span>
         )}

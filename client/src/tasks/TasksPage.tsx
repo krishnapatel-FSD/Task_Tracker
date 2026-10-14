@@ -49,7 +49,8 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const mineOnly = !isAdmin && scope === 'mine';
-  const canChange = (task: Task) => isAdmin || task.assignee.id === user?.id;
+  // A task handed to you stays locked until you accept the handoff.
+  const canChange = (task: Task) => isAdmin || (task.assignee.id === user?.id && !task.handoffPending);
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => {
     setViewState(v);
@@ -126,7 +127,7 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
     [tasks, quick, needle, litIds, priority],
   );
 
-  const selectedId = panel.kind === 'view' || panel.kind === 'edit' || panel.kind === 'complete' ? panel.id : null;
+  const selectedId = panel.kind === 'view' || panel.kind === 'edit' || panel.kind === 'complete' || panel.kind === 'handoff' ? panel.id : null;
 
   // Marking a task done always asks for a note first, in the task panel.
   const requestStatus = (task: Task, status: Status) => {
@@ -374,6 +375,7 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
             updatingId={updatingId}
             flashId={flashId}
             canChange={canChange}
+            meId={user?.id}
             onOpen={openTask}
             onStatusChange={requestStatus}
             empty={emptyState}
@@ -407,6 +409,19 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
         onStatusChange={requestStatus}
         onComplete={completeTask}
         onCancelComplete={(t) => setPanel({ kind: 'view', id: t.id })}
+        onHandoff={(t) => setPanel({ kind: 'handoff', id: t.id })}
+        onCancelHandoff={(t) => setPanel({ kind: 'view', id: t.id })}
+        onHandedOff={(t) => {
+          replaceTask(t);
+          // On "My tasks" the task has just left your list, so close it; elsewhere keep it open.
+          if (mineOnly) closePanel();
+          else setPanel({ kind: 'view', id: t.id });
+          toast({ message: `Handed "${t.title}" to ${t.assignee.name}. It's waiting for them to accept.` });
+        }}
+        onAccepted={(t) => {
+          replaceTask(t);
+          toast({ message: `"${t.title}" is yours now.` });
+        }}
         onPatch={patchTask}
       />
     </div>

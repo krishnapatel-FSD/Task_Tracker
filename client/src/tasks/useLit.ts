@@ -13,6 +13,8 @@ const TAGS: Record<string, string> = {
   overdue: 'Late reminder',
   mentioned: 'Mentioned you',
   comment_added: 'New comment',
+  handoff_received: 'Handed to you',
+  handoff_accepted: 'Handoff accepted',
 };
 
 export interface LitInfo {

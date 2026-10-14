@@ -1,6 +1,8 @@
 import type {
   Attachment,
   ChecklistItem,
+  Handoff,
+  HandoffDraft,
   Holiday,
   CommentRevision,
   CompletionNote,
@@ -120,6 +122,17 @@ export const api = {
 
   previewSchedule: (rule: Pick<TemplateInput, 'projectId' | 'repeat' | 'weekdays' | 'monthDay' | 'intervalDays' | 'startDate' | 'endDate'>) =>
     request<{ schedule: string; dates: string[] }>('/templates/preview', { method: 'POST', body: JSON.stringify(rule) }),
+
+  getHandoffDraft: (taskId: string) => request<HandoffDraft>(`/tasks/${taskId}/handoffs/draft`),
+
+  listHandoffs: (taskId: string) => request<Handoff[]>(`/tasks/${taskId}/handoffs`),
+
+  createHandoff: (
+    taskId: string,
+    input: { toUserId: string; done: string[]; remaining: string[]; blockers: string; decisions: string; attachmentIds: string[] },
+  ) => request<Task>(`/tasks/${taskId}/handoffs`, { method: 'POST', body: JSON.stringify(input) }),
+
+  acceptHandoff: (taskId: string) => request<Task>(`/tasks/${taskId}/handoffs/accept`, { method: 'POST' }),
 
   getProgress: (q: { from: string; to: string; projectId?: string }) => {
     const p = new URLSearchParams({ from: q.from, to: q.to });

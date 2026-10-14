@@ -29,6 +29,8 @@ export const taskEventTypeEnum = pgEnum('task_event_type', [
   'restored',
   'attachment_added',
   'attachment_removed',
+  'handed_off',
+  'handoff_accepted',
 ]);
 
 export const users = pgTable('users', {
@@ -110,6 +112,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'weekly_report',
   'mentioned',
   'comment_added',
+  'handoff_received',
+  'handoff_accepted',
 ]);
 export const emailFrequencyEnum = pgEnum('email_frequency', ['instant', 'daily']);
 
@@ -229,6 +233,33 @@ export const commentMentions = pgTable(
     userId: uuid('user_id').notNull().references(() => users.id),
   },
   (t) => [primaryKey({ columns: [t.commentId, t.userId] })],
+);
+
+/**
+ * A task handed from one person to another, with what the new owner needs to know.
+ * Until `acceptedAt` is set the task is locked for its new assignee.
+ */
+export const taskHandoffs = pgTable(
+  'task_handoffs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id').notNull().references(() => tasks.id),
+    fromUserId: uuid('from_user_id').notNull().references(() => users.id),
+    toUserId: uuid('to_user_id').notNull().references(() => users.id),
+    createdBy: uuid('created_by').notNull().references(() => users.id),
+    done: jsonb('done').$type<string[]>().notNull().default([]),
+    remaining: jsonb('remaining').$type<string[]>().notNull().default([]),
+    blockers: text('blockers'),
+    decisions: text('decisions'),
+    attachmentIds: jsonb('attachment_ids').$type<string[]>().notNull().default([]),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('task_handoffs_task_idx').on(t.taskId, t.createdAt),
+    // at most one handoff waiting on a task
+    uniqueIndex('task_handoffs_one_pending_idx').on(t.taskId).where(sql`${t.acceptedAt} is null`),
+  ],
 );
 
 /** Tick-able steps inside a task. The admin and the assignee manage them. */

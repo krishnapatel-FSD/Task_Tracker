@@ -3,6 +3,7 @@ import { db, type DbOrTx, type Tx } from '../db/index.js';
 import {
   notificationPreferences,
   notifications,
+  taskHandoffs,
   taskNotes,
   tasks,
   users,
@@ -157,6 +158,44 @@ export async function notifyForEvent(tx: Tx, event: TaskEventRow) {
         for (const adminId of admins) {
           rows.push({ ...base, userId: adminId, type: 'status_changed', title: `${actor.name} marked ${task.title} as ${label}`, body, link: taskLink(task.id, true) });
         }
+      }
+      break;
+    }
+
+    case 'handed_off': {
+      const [from] = await tx.select({ name: users.name }).from(users).where(eq(users.id, d.fromId));
+      const [to] = await tx.select({ name: users.name }).from(users).where(eq(users.id, d.toId));
+      rows.push({
+        ...base,
+        userId: d.toId,
+        type: 'handoff_received',
+        title: `${actor.name} handed you ${task.title}`,
+        body: `Read the handoff and accept it to take the task on. Due ${formatDay(task.deadline)}.`,
+        link: taskLink(task.id, false),
+      });
+      if (d.fromId !== event.actorId) {
+        rows.push({ ...base, userId: d.fromId, type: 'task_unassigned', title: `${task.title} was handed to ${to?.name ?? 'someone else'}`, link: `/team?task=${task.id}` });
+      }
+      for (const adminId of admins) {
+        if (adminId === event.actorId) continue;
+        rows.push({ ...base, userId: adminId, type: 'handoff_received', title: `${from?.name ?? 'Someone'} handed ${task.title} to ${to?.name ?? 'someone else'}`, link: taskLink(task.id, true) });
+      }
+      break;
+    }
+
+    case 'handoff_accepted': {
+      const [h] = await tx.select({ fromUserId: taskHandoffs.fromUserId, createdBy: taskHandoffs.createdBy }).from(taskHandoffs).where(eq(taskHandoffs.id, d.handoffId));
+      const told = new Set<string>();
+      for (const userId of [h?.fromUserId, h?.createdBy, ...admins]) {
+        if (!userId || told.has(userId)) continue;
+        told.add(userId);
+        rows.push({
+          ...base,
+          userId,
+          type: 'handoff_accepted',
+          title: `${actor.name} accepted ${task.title}`,
+          link: isAdmin(userId) ? taskLink(task.id, true) : `/team?task=${task.id}`,
+        });
       }
       break;
     }

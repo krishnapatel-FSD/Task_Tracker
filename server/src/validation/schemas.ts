@@ -169,6 +169,18 @@ export type TemplateInput = z.infer<typeof templateSchema>;
 export const previewRuleSchema = z.object({ projectId: taskFields.projectId, ...ruleFields }).superRefine(checkRule);
 export type PreviewRuleInput = z.infer<typeof previewRuleSchema>;
 
+const handoffLine = z.string().trim().min(1).max(300, 'Keep each line to 300 characters');
+
+export const handoffSchema = z.object({
+  toUserId: z.uuid('Pick who takes the task over'),
+  done: z.array(handoffLine).max(40).default([]),
+  remaining: z.array(handoffLine).max(40).default([]),
+  blockers: z.string().trim().max(2000).default(''),
+  decisions: z.string().trim().max(4000).default(''),
+  attachmentIds: z.array(z.uuid()).max(50).default([]),
+});
+export type HandoffInput = z.infer<typeof handoffSchema>;
+
 export const holidaySchema = z.object({
   date: dateString('Date'),
   name: z.string().trim().min(1, 'Name the day off').max(100),

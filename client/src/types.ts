@@ -61,6 +61,30 @@ export interface Task {
   templateId: string | null;
   /** Made by a repeat schedule. */
   repeats: boolean;
+  /** Handed to the assignee, who hasn't accepted it yet (the task is locked for them). */
+  handoffPending: boolean;
+}
+
+export interface Handoff {
+  id: string;
+  done: string[];
+  remaining: string[];
+  blockers: string | null;
+  decisions: string | null;
+  acceptedAt: string | null;
+  createdAt: string;
+  from: Employee;
+  to: Employee;
+  by: Employee;
+  files: { id: string; fileName: string; removed: boolean }[];
+}
+
+export interface HandoffDraft {
+  done: string[];
+  remaining: string[];
+  blockers: string;
+  decisions: string;
+  files: { id: string; fileName: string }[];
 }
 
 export interface ChecklistItem {
@@ -194,7 +218,9 @@ export type TaskEventType =
   | 'archived'
   | 'restored'
   | 'attachment_added'
-  | 'attachment_removed';
+  | 'attachment_removed'
+  | 'handed_off'
+  | 'handoff_accepted';
 
 export interface TaskEvent {
   id: string;

@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { db, type DbOrTx, type Tx } from '../db/index.js';
-import { projects, taskChecklistItems, taskEvents, taskNotes, tasks, users } from '../db/schema.js';
-import { badRequest, forbidden, notFound } from '../lib/errors.js';
+import { projects, taskChecklistItems, taskEvents, taskHandoffs, taskNotes, tasks, users } from '../db/schema.js';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import type { AuthUser } from '../lib/jwt.js';
 import type { CreateTaskInput, ListTasksQuery, UpdateStatusInput, UpdateTaskInput } from '../validation/schemas.js';
 import { assertActiveProject } from './projectService.js';
@@ -28,6 +28,8 @@ const taskFields = {
   templateId: tasks.templateId,
   /** Made by a repeat schedule (shows a "Repeats" badge). */
   repeats: sql<boolean>`exists (select 1 from task_occurrences o where o.task_id = ${tasks.id})`,
+  /** Handed to the assignee, who hasn't accepted it yet. */
+  handoffPending: sql<boolean>`exists (select 1 from task_handoffs h where h.task_id = ${tasks.id} and h.accepted_at is null)`,
 };
 
 function selectTasks(conn: DbOrTx = db) {
@@ -57,8 +59,15 @@ export async function loadTaskFor(caller: AuthUser, id: string, access: 'read' |
     .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
     .limit(1);
   if (!task) throw notFound('Task not found');
-  if (access === 'write' && caller.role !== 'admin' && task.assigneeId !== caller.id) {
-    throw forbidden('You can only update your own tasks');
+  if (access === 'write' && caller.role !== 'admin') {
+    if (task.assigneeId !== caller.id) throw forbidden('You can only update your own tasks');
+    // A task handed to you is locked until you accept it.
+    const [waiting] = await conn
+      .select({ id: taskHandoffs.id })
+      .from(taskHandoffs)
+      .where(and(eq(taskHandoffs.taskId, id), isNull(taskHandoffs.acceptedAt)))
+      .limit(1);
+    if (waiting) throw conflict('Accept the handoff before changing this task');
   }
   return task;
 }
@@ -264,7 +273,7 @@ export async function listTaskEvents(caller: AuthUser, taskId: string) {
   const userIds = new Set<string>();
   const projectIds = new Set<string>();
   for (const { type, data } of rows) {
-    if (type === 'reassigned') {
+    if (type === 'reassigned' || type === 'handed_off') {
       userIds.add(data.fromId as string);
       userIds.add(data.toId as string);
     }

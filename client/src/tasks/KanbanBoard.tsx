@@ -11,7 +11,7 @@ import {
   type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { DotsSixVertical, ChatCircle, ListChecks, Repeat, NotePencil, Paperclip } from '@phosphor-icons/react';
+import { DotsSixVertical, ArrowsLeftRight, ChatCircle, ListChecks, Repeat, NotePencil, Paperclip } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { daysUntil, isLate, lineIndexFor, todayIso } from '../timetable';
 import { STATUS_LABELS, STATUSES, type Status, type Task } from '../types';
@@ -182,6 +182,12 @@ function Card({ task, showAssignee, employeeIds, lit, selectedId, updatingId, ca
           {task.project.name}
         </span>
         <PriorityTag priority={task.priority} />
+        {task.handoffPending && (
+          <span className="handoff-pill">
+            <ArrowsLeftRight size={12} weight="bold" aria-hidden="true" />
+            Handoff waiting
+          </span>
+        )}
         {task.repeats && (
           <span className="row-files" title="Made by a repeat schedule">
             <Repeat size={13} weight="bold" aria-hidden="true" />
