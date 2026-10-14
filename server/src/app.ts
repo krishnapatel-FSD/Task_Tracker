@@ -4,6 +4,7 @@ import { env } from './lib/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { attachmentsRouter, taskAttachmentsRouter } from './routes/attachments.js';
 import { authRouter } from './routes/auth.js';
+import { commentsRouter, taskCommentsRouter } from './routes/comments.js';
 import { meRouter, notificationsRouter } from './routes/notifications.js';
 import { projectsRouter } from './routes/projects.js';
 import { reportsRouter } from './routes/reports.js';
@@ -27,6 +28,8 @@ export function createApp() {
   api.use('/projects', projectsRouter);
   api.use('/tasks/:id/attachments', taskAttachmentsRouter);
   api.use('/attachments', attachmentsRouter);
+  api.use('/tasks/:id/comments', taskCommentsRouter);
+  api.use('/comments', commentsRouter);
   api.use('/tasks', tasksRouter);
   api.use('/notifications', notificationsRouter);
   api.use('/me', meRouter);

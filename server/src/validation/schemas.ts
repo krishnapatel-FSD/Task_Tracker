@@ -34,6 +34,19 @@ export const updateTaskSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, 'Send at least one field to change');
 
+const commentBody = z
+  .string('Write a comment')
+  .trim()
+  .min(1, 'Write a comment')
+  .max(4000, 'Keep comments to 4000 characters or fewer');
+
+/** A comment; `mentionIds` are the people picked from the @ list. */
+export const commentSchema = z.object({
+  body: commentBody,
+  mentionIds: z.array(z.uuid('Mentions must be valid user ids')).max(20, 'Mention at most 20 people').default([]),
+});
+export type CommentInput = z.infer<typeof commentSchema>;
+
 /** The note required when a task is marked done. */
 export const completionNoteSchema = z.object({
   summary: z

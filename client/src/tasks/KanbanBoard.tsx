@@ -11,7 +11,7 @@ import {
   type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { DotsSixVertical, NotePencil, Paperclip } from '@phosphor-icons/react';
+import { DotsSixVertical, ChatCircle, NotePencil, Paperclip } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { daysUntil, isLate, lineIndexFor, todayIso } from '../timetable';
 import { STATUS_LABELS, STATUSES, type Status, type Task } from '../types';
@@ -182,6 +182,13 @@ function Card({ task, showAssignee, employeeIds, lit, selectedId, updatingId, ca
           {task.project.name}
         </span>
         <PriorityTag priority={task.priority} />
+        {task.commentCount > 0 && (
+          <span className="row-files" title={`${task.commentCount} comment${task.commentCount === 1 ? '' : 's'}`}>
+            <ChatCircle size={13} weight="bold" aria-hidden="true" />
+            {task.commentCount}
+            <span className="sr-only"> comments</span>
+          </span>
+        )}
         {task.noteCount > 0 && (
           <span className="row-files" title={`${task.noteCount} note${task.noteCount === 1 ? '' : 's'}`}>
             <NotePencil size={13} weight="bold" aria-hidden="true" />

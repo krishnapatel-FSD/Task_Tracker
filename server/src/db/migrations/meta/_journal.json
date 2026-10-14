@@ -43,6 +43,13 @@
       "when": 1791958006851,
       "tag": "0005_task_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791962282997,
+      "tag": "0006_task_comments",
+      "breakpoints": true
     }
   ]
 }

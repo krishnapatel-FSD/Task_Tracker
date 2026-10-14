@@ -1,15 +1,18 @@
 import type {
   Attachment,
+  CommentRevision,
   CompletionNote,
   Employee,
   NotificationPage,
   NotificationPreferences,
+  Person,
   Project,
   ProjectBoardRow,
   ProjectRef,
   Status,
   Task,
   TaskFilterValues,
+  TaskComment,
   TaskInput,
   TaskNote,
   TaskTimeline,
@@ -88,6 +91,22 @@ export const api = {
     request<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
   listEmployees: () => request<Employee[]>('/users'),
+
+  listPeople: () => request<Person[]>('/users/people'),
+
+  listComments: (taskId: string) => request<TaskComment[]>(`/tasks/${taskId}/comments`),
+
+  addComment: (taskId: string, body: string, mentionIds: string[]) =>
+    request<{ id: string }>(`/tasks/${taskId}/comments`, { method: 'POST', body: JSON.stringify({ body, mentionIds }) }),
+
+  editComment: (id: string, body: string, mentionIds: string[]) =>
+    request<{ id: string }>(`/comments/${id}`, { method: 'PATCH', body: JSON.stringify({ body, mentionIds }) }),
+
+  deleteComment: (id: string) => request<null>(`/comments/${id}`, { method: 'DELETE' }),
+
+  restoreComment: (id: string) => request<null>(`/comments/${id}/restore`, { method: 'POST' }),
+
+  listCommentRevisions: (id: string) => request<CommentRevision[]>(`/comments/${id}/revisions`),
 
   listTasks: (filters: Partial<TaskFilterValues> = {}) => {
     const params = new URLSearchParams();

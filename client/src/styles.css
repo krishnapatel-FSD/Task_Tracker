@@ -3509,3 +3509,203 @@ th[aria-sort] .sort-button {
     margin-left: 0;
   }
 }
+
+/* ---------- Comments on a task ---------- */
+
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.comment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--surface);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-panel);
+}
+.comment.is-deleted {
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--container);
+}
+.comment-deleted {
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--ink-3);
+}
+.comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+.comment-avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--container-high);
+  border-radius: 50%;
+}
+.comment-author {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.comment-time {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.comment-edited {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.comment-edited.is-button {
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.comment-edited.is-button:hover {
+  color: var(--ink);
+}
+.comment-history {
+  flex-basis: 100%;
+  margin-top: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--sunken);
+  border-radius: var(--radius-control);
+}
+.comment-history-title {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.comment-history ol {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.comment-history li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.comment-history-when {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.comment-history-body {
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.comment-body {
+  font-size: var(--text-md);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mention {
+  font-weight: 600;
+  color: var(--lit);
+}
+.mention.is-you {
+  padding: 0 0.2rem;
+  background: var(--lit-tint);
+  border-radius: 4px;
+}
+.comment-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+.comment-actions .btn-link {
+  height: auto;
+  padding: 0;
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}
+.comment-actions .btn-link:hover {
+  color: var(--ink);
+}
+.comment-actions .comment-delete:hover {
+  color: var(--late);
+}
+.mention-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.mention-field {
+  position: relative;
+}
+.mention-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 30;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--surface);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-float);
+}
+.mention-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mention-list li.is-active,
+.mention-list li:hover {
+  background: var(--sunken);
+}
+.mention-role {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mention-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.mention-hint {
+  margin-right: auto;
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+}

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity } from '../components/Activity';
 import { Files } from '../components/Files';
+import { Comments } from '../components/Comments';
 import { Notes } from '../components/Notes';
 import { TaskComposer } from '../components/TaskComposer';
 import { formatDateTime } from '../format';
@@ -112,7 +113,11 @@ export function TaskPanel(props: Props) {
 }
 
 function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch }: Props & { task: Task }) {
-  const [tab, setTab] = useState<'notes' | 'files' | 'activity'>(task.noteCount > 0 ? 'notes' : 'files');
+  const [tab, setTab] = useState<'comments' | 'notes' | 'files' | 'activity'>(task.status === 'done' && task.noteCount > 0 ? 'notes' : 'comments');
+  const onCommentCount = useCallback(
+    (commentCount: number) => commentCount !== task.commentCount && onPatch(task.id, { commentCount }),
+    [task.id, task.commentCount, onPatch],
+  );
   const onCountChange = useCallback(
     (attachmentCount: number) => attachmentCount !== task.attachmentCount && onPatch(task.id, { attachmentCount }),
     [task.id, task.attachmentCount, onPatch],
@@ -215,7 +220,10 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
       )}
 
       <section className="panel-section">
-        <div className="tabs" role="tablist" aria-label="Notes, files and activity">
+        <div className="tabs" role="tablist" aria-label="Comments, notes, files and activity">
+          <button type="button" role="tab" className="tab" aria-selected={tab === 'comments'} onClick={() => setTab('comments')}>
+            Comments{task.commentCount > 0 && <span className="tab-count">{task.commentCount}</span>}
+          </button>
           <button type="button" role="tab" className="tab" aria-selected={tab === 'notes'} onClick={() => setTab('notes')}>
             Notes{task.noteCount > 0 && <span className="tab-count">{task.noteCount}</span>}
           </button>
@@ -227,7 +235,9 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
           </button>
         </div>
         <div role="tabpanel" className="tab-body">
-          {tab === 'notes' ? (
+          {tab === 'comments' ? (
+            <Comments taskId={task.id} onCountChange={onCommentCount} />
+          ) : tab === 'notes' ? (
             <Notes taskId={task.id} refreshKey={`${task.noteCount}`} />
           ) : tab === 'files' ? (
             <Files taskId={task.id} canEdit={canChange} onCountChange={onCountChange} />

@@ -4,6 +4,11 @@ import * as userService from '../services/userService.js';
 
 export const usersRouter = Router();
 
+// Everyone, admin included, for @mentions in comments.
+usersRouter.get('/people', authenticate, async (_req, res) => {
+  res.json(await userService.listPeople());
+});
+
 // Names of the team, for the shared board's person filter. Ids and names only.
 usersRouter.get('/', authenticate, async (_req, res) => {
   res.json(await userService.listEmployees());

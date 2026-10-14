@@ -13,6 +13,7 @@ import {
   boolean,
   integer,
   uniqueIndex,
+  primaryKey,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
@@ -103,6 +104,8 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'due_tomorrow',
   'overdue',
   'weekly_report',
+  'mentioned',
+  'comment_added',
 ]);
 export const emailFrequencyEnum = pgEnum('email_frequency', ['instant', 'daily']);
 
@@ -180,6 +183,48 @@ export const taskNotes = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('task_notes_task_created_idx').on(t.taskId, t.createdAt.desc())],
+);
+
+/**
+ * Conversation on a task while the work is going on. Separate from completion notes.
+ * Deleting only hides a comment (deleted_at); edits keep the previous text in revisions.
+ */
+export const taskComments = pgTable(
+  'task_comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id').notNull().references(() => tasks.id),
+    authorId: uuid('author_id').notNull().references(() => users.id),
+    body: text('body').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedBy: uuid('deleted_by').references((): AnyPgColumn => users.id),
+  },
+  (t) => [index('task_comments_task_created_idx').on(t.taskId, t.createdAt)],
+);
+
+/** The audit trail: one row per edit, holding the text as it was before that edit. */
+export const taskCommentRevisions = pgTable(
+  'task_comment_revisions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    commentId: uuid('comment_id').notNull().references(() => taskComments.id),
+    body: text('body').notNull(),
+    editorId: uuid('editor_id').notNull().references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('task_comment_revisions_comment_idx').on(t.commentId, t.createdAt)],
+);
+
+/** Who a comment mentions. */
+export const commentMentions = pgTable(
+  'comment_mentions',
+  {
+    commentId: uuid('comment_id').notNull().references(() => taskComments.id),
+    userId: uuid('user_id').notNull().references(() => users.id),
+  },
+  (t) => [primaryKey({ columns: [t.commentId, t.userId] })],
 );
 
 export const weeklyReportStatusEnum = pgEnum('weekly_report_status', ['ready', 'failed']);

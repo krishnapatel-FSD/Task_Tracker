@@ -11,6 +11,8 @@ const TAGS: Record<string, string> = {
   attachment_added: 'New file',
   due_tomorrow: 'Due tomorrow',
   overdue: 'Late reminder',
+  mentioned: 'Mentioned you',
+  comment_added: 'New comment',
 };
 
 export interface LitInfo {

@@ -54,6 +54,33 @@ export interface Task {
   project: ProjectRef;
   attachmentCount: number;
   noteCount: number;
+  commentCount: number;
+}
+
+/** Anyone who can be @mentioned. */
+export interface Person {
+  id: string;
+  name: string;
+  role: Role;
+}
+
+export interface TaskComment {
+  id: string;
+  /** Null once deleted: the comment stays as a placeholder. */
+  body: string | null;
+  deleted: boolean;
+  createdAt: string;
+  editedAt: string | null;
+  author: Employee;
+  mentions: Employee[];
+  revisionCount: number;
+}
+
+export interface CommentRevision {
+  id: string;
+  body: string;
+  createdAt: string;
+  editor: Employee;
 }
 
 /** What was done and how long it took. Required when a task is marked done. */

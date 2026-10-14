@@ -22,6 +22,7 @@ const taskFields = {
   project: { id: projects.id, name: projects.name, colourIndex: projects.colourIndex },
   attachmentCount: sql<number>`(select count(*) from attachments a where a.task_id = ${tasks.id} and a.deleted_at is null)`.mapWith(Number),
   noteCount: sql<number>`(select count(*) from task_notes n where n.task_id = ${tasks.id})`.mapWith(Number),
+  commentCount: sql<number>`(select count(*) from task_comments c where c.task_id = ${tasks.id} and c.deleted_at is null)`.mapWith(Number),
 };
 
 function selectTasks(conn: DbOrTx = db) {
