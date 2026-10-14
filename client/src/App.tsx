@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { homePathFor, useAuth } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { Shell } from './components/Shell';
+import { CalendarPage } from './calendar/CalendarPage';
 import { AdminProjects } from './pages/AdminProjects';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { Login } from './pages/Login';
@@ -92,6 +93,14 @@ export function App() {
                 <Suspense fallback={<main className="page"><p className="panel-note">Loading reports…</p></main>}>
                   <ReportsPage />
                 </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/calendar"
+            element={
+              <ProtectedRoute>
+                <CalendarPage />
               </ProtectedRoute>
             }
           />

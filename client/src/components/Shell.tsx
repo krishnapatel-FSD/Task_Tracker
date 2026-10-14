@@ -1,4 +1,4 @@
-import { Bell, ChartBar, CheckSquareOffset, FolderSimple, GearSix, ListChecks, Repeat, UsersThree, SignOut } from '@phosphor-icons/react';
+import { Bell, CalendarBlank, ChartBar, CheckSquareOffset, FolderSimple, GearSix, ListChecks, Repeat, UsersThree, SignOut } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -9,6 +9,8 @@ interface NavItem {
   label: string;
   /** Shorter label for the phone tab bar. */
   short?: string;
+  /** Admin set-up pages: on phones they live in the account menu, not the tab bar. */
+  phoneMenu?: boolean;
   icon: ReactNode;
   badge?: number;
 }
@@ -35,15 +37,17 @@ export function Shell({ children }: { children: ReactNode }) {
     ? [
         { to: '/projects', label: 'Projects', icon: <FolderSimple size={20} weight="bold" /> },
         { to: '/admin/tasks', label: 'All tasks', short: 'Tasks', icon: <ListChecks size={20} weight="bold" /> },
+        { to: '/calendar', label: 'Calendar', icon: <CalendarBlank size={20} weight="bold" /> },
         { to: '/admin/reports', label: 'Reports', icon: <ChartBar size={20} weight="bold" /> },
-        { to: '/admin/templates', label: 'Templates', short: 'Repeats', icon: <Repeat size={20} weight="bold" /> },
-        { to: '/admin/projects', label: 'Manage projects', short: 'Manage', icon: <GearSix size={20} weight="bold" /> },
+        { to: '/admin/templates', label: 'Templates', short: 'Repeats', phoneMenu: true, icon: <Repeat size={20} weight="bold" /> },
+        { to: '/admin/projects', label: 'Manage projects', short: 'Manage', phoneMenu: true, icon: <GearSix size={20} weight="bold" /> },
         { to: '/notifications', label: 'Notifications', icon: <Bell size={20} weight="bold" />, badge: count },
       ]
     : [
         { to: '/projects', label: 'Projects', icon: <FolderSimple size={20} weight="bold" /> },
         { to: '/tasks', label: 'My tasks', short: 'Mine', icon: <ListChecks size={20} weight="bold" /> },
         { to: '/team', label: 'All tasks', short: 'Team', icon: <UsersThree size={20} weight="bold" /> },
+        { to: '/calendar', label: 'Calendar', icon: <CalendarBlank size={20} weight="bold" /> },
         { to: '/notifications', label: 'Notifications', icon: <Bell size={20} weight="bold" />, badge: count },
       ];
   const initials = user.name
@@ -52,7 +56,7 @@ export function Shell({ children }: { children: ReactNode }) {
     .map((p) => p[0]?.toUpperCase())
     .join('');
 
-  const renderLinks = (compact: boolean) => items.map((item) => (
+  const renderLinks = (compact: boolean) => items.filter((item) => !compact || !item.phoneMenu).map((item) => (
     <NavLink key={item.to} to={item.to} className="nav-link">
       <span className="nav-icon" aria-hidden="true">
         {item.icon}
@@ -89,7 +93,13 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <header className="mobile-bar">
         <Logo />
-        <UserMenu name={user.name} role={isAdmin ? 'Admin' : 'Employee'} initials={initials} onLogout={logout} />
+        <UserMenu
+          name={user.name}
+          role={isAdmin ? 'Admin' : 'Employee'}
+          initials={initials}
+          links={items.filter((i) => i.phoneMenu)}
+          onLogout={logout}
+        />
       </header>
 
       <div className="shell-content">{children}</div>
@@ -102,7 +112,7 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** Phone top bar: who is signed in, with Log out tucked one tap away so it can't be hit by accident. */
-function UserMenu({ name, role, initials, onLogout }: { name: string; role: string; initials: string; onLogout: () => void }) {
+function UserMenu({ name, role, initials, links, onLogout }: { name: string; role: string; initials: string; links: NavItem[]; onLogout: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -130,6 +140,16 @@ function UserMenu({ name, role, initials, onLogout }: { name: string; role: stri
         <div className="user-menu-panel">
           <p className="user-menu-name">{name}</p>
           {name !== role && <p className="user-menu-role">{role}</p>}
+          {links.length > 0 && (
+            <nav className="user-menu-links" aria-label="Settings">
+              {links.map((l) => (
+                <NavLink key={l.to} to={l.to} className="user-menu-link" onClick={() => setOpen(false)}>
+                  {l.icon}
+                  {l.label}
+                </NavLink>
+              ))}
+            </nav>
+          )}
           <button type="button" className="btn btn-quiet btn-small user-menu-logout" onClick={onLogout}>
             <SignOut size={16} weight="bold" aria-hidden="true" />
             Log out

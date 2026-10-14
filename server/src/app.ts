@@ -4,6 +4,7 @@ import { env } from './lib/env.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { attachmentsRouter, taskAttachmentsRouter } from './routes/attachments.js';
 import { authRouter } from './routes/auth.js';
+import { calendarRouter } from './routes/calendar.js';
 import { checklistRouter, taskChecklistRouter } from './routes/checklist.js';
 import { commentsRouter, taskCommentsRouter } from './routes/comments.js';
 import { meRouter, notificationsRouter } from './routes/notifications.js';
@@ -35,6 +36,7 @@ export function createApp() {
   api.use('/tasks/:id/checklist', taskChecklistRouter);
   api.use('/checklist', checklistRouter);
   api.use('/templates', templatesRouter);
+  api.use('/calendar', calendarRouter);
   api.use('/tasks', tasksRouter);
   api.use('/notifications', notificationsRouter);
   api.use('/me', meRouter);

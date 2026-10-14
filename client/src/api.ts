@@ -120,6 +120,9 @@ export const api = {
   previewSchedule: (rule: Pick<TemplateInput, 'projectId' | 'repeat' | 'weekdays' | 'monthDay' | 'intervalDays' | 'startDate' | 'endDate'>) =>
     request<{ schedule: string; dates: string[] }>('/templates/preview', { method: 'POST', body: JSON.stringify(rule) }),
 
+  calendarDaysOff: () =>
+    request<{ projects: { id: string; skipWeekends: boolean }[]; holidays: { projectId: string; date: string; name: string }[] }>('/calendar/days-off'),
+
   listHolidays: (projectId: string) => request<Holiday[]>(`/projects/${projectId}/holidays`),
 
   addHoliday: (projectId: string, date: string, name: string) =>
