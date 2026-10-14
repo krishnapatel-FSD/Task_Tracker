@@ -3,12 +3,13 @@ import { db, type DbOrTx, type Tx } from '../db/index.js';
 import {
   notificationPreferences,
   notifications,
+  taskNotes,
   tasks,
   users,
   type NotificationType,
   type Status,
 } from '../db/schema.js';
-import { formatDay } from '../lib/dates.js';
+import { formatDay, formatMinutes } from '../lib/dates.js';
 import { notFound } from '../lib/errors.js';
 import { onTaskEvent, type TaskEventRow } from './taskEvents.js';
 
@@ -136,17 +137,25 @@ export async function notifyForEvent(tx: Tx, event: TaskEventRow) {
 
     case 'status_changed': {
       const label = STATUS_LABELS[d.to as Status];
+      // A completion carries its note: say how long it took and what was done.
+      const minutes = typeof d.minutesSpent === 'number' ? d.minutesSpent : null;
+      let body: string | undefined;
+      if (minutes !== null && typeof d.noteId === 'string') {
+        const [note] = await tx.select({ summary: taskNotes.summary }).from(taskNotes).where(eq(taskNotes.id, d.noteId)).limit(1);
+        body = `Took ${formatMinutes(minutes)}.${note ? ` ${note.summary}` : ''}`;
+      }
       if (isAdmin(event.actorId)) {
         rows.push({
           ...base,
           userId: task.assigneeId,
           type: 'status_changed',
           title: `${actor.name} moved ${task.title} to ${label}`,
+          body,
           link: taskLink(task.id, false),
         });
       } else {
         for (const adminId of admins) {
-          rows.push({ ...base, userId: adminId, type: 'status_changed', title: `${actor.name} marked ${task.title} as ${label}`, link: taskLink(task.id, true) });
+          rows.push({ ...base, userId: adminId, type: 'status_changed', title: `${actor.name} marked ${task.title} as ${label}`, body, link: taskLink(task.id, true) });
         }
       }
       break;

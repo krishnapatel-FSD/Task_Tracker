@@ -43,3 +43,11 @@ export function weekStartOf(iso: string) {
   const weekday = (d.getUTCDay() + 6) % 7; // 0 = Monday
   return addDays(iso, -weekday);
 }
+
+/** "45 min", "2 h", "2 h 30 min" */
+export function formatMinutes(total: number) {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}

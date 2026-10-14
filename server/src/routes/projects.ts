@@ -18,8 +18,13 @@ export const projectsRouter = Router();
 projectsRouter.use(authenticate);
 
 // ?all=true (admin only) includes archived projects and task counts.
+// ?board=true returns the projects home with per-project counts for the viewer.
 projectsRouter.get('/', validate(listProjectsQuerySchema, 'query'), async (req, res) => {
-  if ((res.locals.query as { all?: string }).all === 'true') {
+  const query = res.locals.query as { all?: string; board?: string };
+  if (query.board === 'true') {
+    return res.json(await projectService.listProjectBoard(req.user!));
+  }
+  if (query.all === 'true') {
     if (req.user!.role !== 'admin') throw forbidden();
     return res.json(await projectService.listAllProjects());
   }

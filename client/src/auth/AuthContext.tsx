@@ -11,7 +11,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export const homePathFor = (role: Role) => (role === 'admin' ? '/admin/tasks' : '/tasks');
+// Both roles land on the projects home.
+export const homePathFor = (_role: Role) => '/projects';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();

@@ -19,6 +19,18 @@ export interface ProjectRef {
   colourIndex: number;
 }
 
+/** One card on the projects home. Counts cover live tasks the viewer can see. */
+export interface ProjectBoardRow extends ProjectRef {
+  description: string | null;
+  totalTasks: number;
+  openTasks: number;
+  lateTasks: number;
+  dueToday: number;
+  doneTasks: number;
+  nextDeadline: string | null;
+  changedTasks: number;
+}
+
 /** A project as the admin projects page sees it. */
 export interface Project extends ProjectRef {
   description: string | null;
@@ -41,6 +53,19 @@ export interface Task {
   assignee: Employee;
   project: ProjectRef;
   attachmentCount: number;
+  noteCount: number;
+}
+
+/** What was done and how long it took. Required when a task is marked done. */
+export interface CompletionNote {
+  summary: string;
+  minutesSpent: number;
+}
+
+export interface TaskNote extends CompletionNote {
+  id: string;
+  createdAt: string;
+  author: Employee;
 }
 
 export interface Attachment {

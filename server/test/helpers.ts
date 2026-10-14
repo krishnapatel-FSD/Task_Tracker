@@ -56,7 +56,7 @@ export async function cleanupProjects(projectIds: string[]) {
   const ids = sql.join(projectIds.map((id) => sql`${id}::uuid`), sql`, `);
   const taskIds = sql`(select id from tasks where project_id in (${ids}))`;
   // Tables added by later milestones are cleaned only if they exist.
-  for (const table of ['notifications', 'attachments']) {
+  for (const table of ['notifications', 'attachments', 'task_notes']) {
     const [{ exists }] = (await db.execute(sql`select to_regclass(${table}) is not null as exists`)).rows as { exists: boolean }[];
     if (exists) await db.execute(sql`delete from ${sql.identifier(table)} where task_id in ${taskIds}`);
   }

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api';
 import { homePathFor, useAuth } from '../auth/AuthContext';
-import { Wordmark } from '../components/Wordmark';
+import { Logo } from '../components/Shell';
 
 export function Login() {
   const { user, login } = useAuth();
@@ -38,8 +38,15 @@ export function Login() {
   return (
     <div className="login">
       <aside className="login-band">
-        <Wordmark />
-        <p className="login-statement">Every task, in the order it is due.</p>
+        <Logo />
+        <div className="login-pitch">
+          <p className="login-statement">Your tasks, all in one place.</p>
+          <ul className="login-points">
+            <li>See what's due today and what's late</li>
+            <li>Move a task forward with one button</li>
+            <li>Get notified when something changes</li>
+          </ul>
+        </div>
       </aside>
 
       <main className="login-main">

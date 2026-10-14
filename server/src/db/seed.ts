@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { sql } from 'drizzle-orm';
 import { db, pool } from './index.js';
-import { projects, taskEvents, tasks, users, type Priority, type Status } from './schema.js';
+import { projects, taskEvents, taskNotes, tasks, users, type Priority, type Status } from './schema.js';
 
 // Seeding is the only way accounts are created (no sign-up).
 // Safe to re-run: existing users (matched by email) are left alone, and sample
@@ -70,6 +70,14 @@ function rand() {
 }
 const pick = <T,>(items: T[]) => items[Math.floor(rand() * items.length)];
 const between = (min: number, max: number) => min + Math.floor(rand() * (max - min + 1));
+
+const DONE_SUMMARIES = [
+  (t: string) => `Finished "${t}". Checked it twice and shared it with the team.`,
+  (t: string) => `"${t}" is done. Left the files in the shared folder.`,
+  (t: string) => `Completed "${t}". One small follow-up noted for next week.`,
+  (t: string) => `Wrapped up "${t}" and confirmed with the people involved.`,
+];
+const doneSummary = (title: string) => DONE_SUMMARIES[between(0, DONE_SUMMARIES.length - 1)](title);
 
 function isoDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -169,7 +177,18 @@ async function main() {
         events.push({ taskId: task.id, actorId: assignee.id, type: 'status_changed', data: { from: 'todo', to: 'in_progress' }, createdAt: startedAt });
       }
       if (completedAt) {
-        events.push({ taskId: task.id, actorId: assignee.id, type: 'status_changed', data: { from: 'in_progress', to: 'done' }, createdAt: completedAt });
+        const minutesSpent = between(2, 16) * 30;
+        const [note] = await db
+          .insert(taskNotes)
+          .values({ taskId: task.id, authorId: assignee.id, summary: doneSummary(title), minutesSpent, createdAt: completedAt })
+          .returning({ id: taskNotes.id });
+        events.push({
+          taskId: task.id,
+          actorId: assignee.id,
+          type: 'status_changed',
+          data: { from: 'in_progress', to: 'done', noteId: note.id, minutesSpent },
+          createdAt: completedAt,
+        });
       }
       await db.insert(taskEvents).values(events);
     }

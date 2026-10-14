@@ -164,6 +164,24 @@ export const attachments = pgTable(
   (t) => [index('attachments_task_idx').on(t.taskId).where(sql`${t.deletedAt} is null`)],
 );
 
+/**
+ * Notes on a task. Marking a task done always adds one: a summary of the work and
+ * how long it took. Visible to the admin and the assignee, like the task itself.
+ */
+export const taskNotes = pgTable(
+  'task_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    taskId: uuid('task_id').notNull().references(() => tasks.id),
+    authorId: uuid('author_id').notNull().references(() => users.id),
+    summary: text('summary').notNull(),
+    /** Time the work took, in minutes, as reported by the person completing it. */
+    minutesSpent: integer('minutes_spent').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('task_notes_task_created_idx').on(t.taskId, t.createdAt.desc())],
+);
+
 export const weeklyReportStatusEnum = pgEnum('weekly_report_status', ['ready', 'failed']);
 
 /** A frozen copy of one week's numbers: later edits to tasks never change it. */

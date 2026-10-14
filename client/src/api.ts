@@ -1,14 +1,17 @@
 import type {
   Attachment,
+  CompletionNote,
   Employee,
   NotificationPage,
   NotificationPreferences,
   Project,
+  ProjectBoardRow,
   ProjectRef,
   Status,
   Task,
   TaskFilterValues,
   TaskInput,
+  TaskNote,
   TaskTimeline,
   User,
 } from './types';
@@ -104,12 +107,16 @@ export const api = {
 
   restoreTask: (id: string) => request<Task>(`/tasks/${id}/restore`, { method: 'POST' }),
 
-  updateTaskStatus: (id: string, status: Status) =>
-    request<Task>(`/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  updateTaskStatus: (id: string, status: Status, note?: CompletionNote) =>
+    request<Task>(`/tasks/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, ...(note ? { note } : {}) }) }),
+
+  listTaskNotes: (id: string) => request<TaskNote[]>(`/tasks/${id}/notes`),
 
   listTaskEvents: (id: string) => request<TaskTimeline>(`/tasks/${id}/events`),
 
   listProjects: () => request<ProjectRef[]>('/projects'),
+
+  listProjectBoard: () => request<ProjectBoardRow[]>('/projects?board=true'),
 
   listAllProjects: () => request<Project[]>('/projects?all=true'),
 

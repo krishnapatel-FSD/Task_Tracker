@@ -34,9 +34,29 @@ export const updateTaskSchema = z
   .strict()
   .refine((v) => Object.keys(v).length > 0, 'Send at least one field to change');
 
-export const updateStatusSchema = z.object({
-  status: z.enum(statusEnum.enumValues, 'Status must be todo, in_progress or done'),
+/** The note required when a task is marked done. */
+export const completionNoteSchema = z.object({
+  summary: z
+    .string('Write a short summary of what was done')
+    .trim()
+    .min(3, 'Write a short summary of what was done')
+    .max(2000, 'Keep the summary to 2000 characters or fewer'),
+  minutesSpent: z
+    .number('Enter how long it took')
+    .int('Enter whole minutes')
+    .min(1, 'Enter how long it took')
+    .max(60 * 24 * 60, 'That is more than 60 days; check the time taken'),
 });
+
+export const updateStatusSchema = z
+  .object({
+    status: z.enum(statusEnum.enumValues, 'Status must be todo, in_progress or done'),
+    note: completionNoteSchema.optional(),
+  })
+  .refine((v) => v.status !== 'done' || v.note !== undefined, {
+    message: 'Add a summary of what was done and how long it took before marking the task done',
+    path: ['note'],
+  });
 
 export const listTasksQuerySchema = z.object({
   status: z.enum(statusEnum.enumValues, 'Status must be todo, in_progress or done').optional(),
@@ -65,6 +85,7 @@ export const updateProjectSchema = z
 
 export const listProjectsQuerySchema = z.object({
   all: z.enum(['true', 'false']).optional(),
+  board: z.enum(['true', 'false']).optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

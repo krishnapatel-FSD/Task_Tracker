@@ -4,6 +4,9 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { call, cleanupProjects, login, startServer, stopServer, uniqueName, type Session } from './helpers.js';
 
+/** Marking a task done always carries a completion note. */
+const DONE_NOTE = { summary: 'Finished and checked', minutesSpent: 45 };
+
 let admin: Session;
 let asha: Session;
 let ben: Session;
@@ -234,7 +237,7 @@ describe('create task', () => {
 describe('update status', () => {
   test('assignee can change status in any direction; completedAt follows done', async () => {
     const task = await makeTask();
-    const toDone = await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done' } });
+    const toDone = await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } });
     assert.equal(toDone.status, 200);
     assert.ok(toDone.body.completedAt, 'completedAt set on done');
 
@@ -243,10 +246,51 @@ describe('update status', () => {
     assert.equal(back.body.completedAt, null, 'completedAt cleared when leaving done');
 
     const events = (await eventsOf(task.id)).body.events;
-    assert.deepEqual(
-      events.filter((e: { type: string }) => e.type === 'status_changed').map((e: { data: unknown }) => e.data),
-      [{ from: 'done', to: 'in_progress' }, { from: 'todo', to: 'done' }],
-    );
+    const changes = events
+      .filter((e: { type: string }) => e.type === 'status_changed')
+      .map((e: { data: Record<string, unknown> }) => ({ from: e.data.from, to: e.data.to, minutesSpent: e.data.minutesSpent }));
+    assert.deepEqual(changes, [
+      { from: 'done', to: 'in_progress', minutesSpent: undefined },
+      { from: 'todo', to: 'done', minutesSpent: 45 },
+    ]);
+  });
+
+  test('marking done without a note is 400', async () => {
+    const task = await makeTask();
+    for (const body of [{ status: 'done' }, { status: 'done', note: { summary: '', minutesSpent: 30 } }, { status: 'done', note: { summary: 'Done it', minutesSpent: 0 } }]) {
+      const res = await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body });
+      assert.equal(res.status, 400, JSON.stringify(body));
+    }
+    assert.equal((await call('GET', `/tasks`, { token: asha.token })).body.find((t: { id: string }) => t.id === task.id).status, 'todo');
+  });
+
+  test('completion note is stored and visible to the assignee and the admin only', async () => {
+    const task = await makeTask();
+    const done = await call('PATCH', `/tasks/${task.id}/status`, {
+      token: asha.token,
+      body: { status: 'done', note: { summary: '  Sent the invoices  ', minutesSpent: 90 } },
+    });
+    assert.equal(done.status, 200);
+    assert.equal(done.body.noteCount, 1);
+
+    for (const token of [asha.token, admin.token]) {
+      const notes = await call('GET', `/tasks/${task.id}/notes`, { token });
+      assert.equal(notes.status, 200);
+      assert.equal(notes.body.length, 1);
+      assert.equal(notes.body[0].summary, 'Sent the invoices');
+      assert.equal(notes.body[0].minutesSpent, 90);
+      assert.equal(notes.body[0].author.id, asha.user.id);
+    }
+    assert.equal((await call('GET', `/tasks/${task.id}/notes`, { token: ben.token })).status, 404);
+  });
+
+  test('reopening keeps the note; finishing again adds another', async () => {
+    const task = await makeTask();
+    await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } });
+    await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'todo' } });
+    await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: { summary: 'Fixed the follow-up', minutesSpent: 20 } } });
+    const notes = (await call('GET', `/tasks/${task.id}/notes`, { token: admin.token })).body;
+    assert.deepEqual(notes.map((n: { summary: string }) => n.summary), ['Fixed the follow-up', 'Finished and checked']);
   });
 
   test('setting the same status writes no event', async () => {
@@ -257,13 +301,13 @@ describe('update status', () => {
 
   test("employee changing another employee's task is 403", async () => {
     const task = await makeTask({ assigneeId: ben.user.id });
-    const res = await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done' } });
+    const res = await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } });
     assert.equal(res.status, 403);
   });
 
   test('unknown or malformed id is 404', async () => {
     for (const id of ['00000000-0000-4000-8000-000000000000', 'not-a-uuid']) {
-      const res = await call('PATCH', `/tasks/${id}/status`, { token: admin.token, body: { status: 'done' } });
+      const res = await call('PATCH', `/tasks/${id}/status`, { token: admin.token, body: { status: 'done', note: DONE_NOTE } });
       assert.equal(res.status, 404);
     }
   });
@@ -304,7 +348,7 @@ describe('edit and reassign', () => {
   test('empty or unknown fields are 400', async () => {
     const task = await makeTask();
     assert.equal((await call('PATCH', `/tasks/${task.id}`, { token: admin.token, body: {} })).status, 400);
-    assert.equal((await call('PATCH', `/tasks/${task.id}`, { token: admin.token, body: { status: 'done' } })).status, 400);
+    assert.equal((await call('PATCH', `/tasks/${task.id}`, { token: admin.token, body: { status: 'done', note: DONE_NOTE } })).status, 400);
   });
 
   test('employee cannot edit (403)', async () => {
@@ -340,7 +384,7 @@ describe('edit and reassign', () => {
     assert.equal((await eventsOf(task.id, asha.token)).status, 404);
     const list = await call('GET', '/tasks', { token: asha.token });
     assert.ok(!list.body.some((t: { id: string }) => t.id === task.id));
-    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done' } })).status, 403);
+    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } })).status, 403);
     assert.equal((await eventsOf(task.id, ben.token)).status, 200);
   });
 
@@ -358,7 +402,7 @@ describe('delete and restore', () => {
     const list = await call('GET', `/tasks?projectId=${projectId}`, { token: admin.token });
     assert.ok(!list.body.some((t: { id: string }) => t.id === task.id));
     assert.equal((await call('DELETE', `/tasks/${task.id}`, { token: admin.token })).status, 404);
-    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done' } })).status, 404);
+    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } })).status, 404);
     assert.equal((await call('PATCH', `/tasks/${task.id}`, { token: admin.token, body: { title: 'x' } })).status, 404);
     assert.equal((await eventsOf(task.id)).status, 404);
 
@@ -390,5 +434,49 @@ describe('gateway', () => {
     const res = await call('GET', '/nope');
     assert.equal(res.status, 404);
     assert.equal(typeof res.body.error, 'string');
+  });
+});
+
+describe('projects board', () => {
+  let boardProjectId: string;
+
+  before(async () => {
+    const created = await call('POST', '/projects', { token: admin.token, body: { name: uniqueName('Board project') } });
+    boardProjectId = created.body.id;
+    projectIds.push(boardProjectId);
+    const base = { description: 'Board fixture', projectId: boardProjectId, priority: 'low' };
+    const add = (body: Record<string, unknown>) => call('POST', '/tasks', { token: admin.token, body: { ...base, ...body } });
+    await add({ title: 'Late for Asha', assigneeId: asha.user.id, deadline: '2020-01-01' });
+    await add({ title: 'Later for Asha', assigneeId: asha.user.id, deadline: '2099-01-01' });
+    await add({ title: 'For Ben', assigneeId: ben.user.id, deadline: '2099-02-01' });
+  });
+
+  test('admin gets team-wide counts', async () => {
+    const res = await call('GET', '/projects?board=true', { token: admin.token });
+    assert.equal(res.status, 200);
+    const row = res.body.find((p: { id: string }) => p.id === boardProjectId);
+    assert.equal(row.totalTasks, 3);
+    assert.equal(row.openTasks, 3);
+    assert.equal(row.lateTasks, 1);
+    assert.equal(row.nextDeadline, '2020-01-01');
+  });
+
+  test('employee counts only their own tasks and changes', async () => {
+    const res = await call('GET', '/projects?board=true', { token: asha.token });
+    assert.equal(res.status, 200);
+    const row = res.body.find((p: { id: string }) => p.id === boardProjectId);
+    assert.equal(row.totalTasks, 2);
+    assert.equal(row.lateTasks, 1);
+    // both tasks were assigned to Asha, so both carry an unread notification
+    assert.equal(row.changedTasks, 2);
+  });
+
+  test('employee does not see projects without their tasks', async () => {
+    const empty = await call('POST', '/projects', { token: admin.token, body: { name: uniqueName('Empty project') } });
+    projectIds.push(empty.body.id);
+    const res = await call('GET', '/projects?board=true', { token: asha.token });
+    assert.ok(!res.body.some((p: { id: string }) => p.id === empty.body.id));
+    const adminRes = await call('GET', '/projects?board=true', { token: admin.token });
+    assert.ok(adminRes.body.some((p: { id: string }) => p.id === empty.body.id));
   });
 });

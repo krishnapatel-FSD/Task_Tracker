@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { db, type DbOrTx } from '../db/index.js';
-import { projects, taskEvents, tasks, users } from '../db/schema.js';
+import { projects, taskEvents, taskNotes, tasks, users } from '../db/schema.js';
 import { badRequest, forbidden, notFound } from '../lib/errors.js';
 import type { AuthUser } from '../lib/jwt.js';
 import type { CreateTaskInput, ListTasksQuery, UpdateStatusInput, UpdateTaskInput } from '../validation/schemas.js';
@@ -21,6 +21,7 @@ const taskFields = {
   assignee: { id: users.id, name: users.name },
   project: { id: projects.id, name: projects.name, colourIndex: projects.colourIndex },
   attachmentCount: sql<number>`(select count(*) from attachments a where a.task_id = ${tasks.id} and a.deleted_at is null)`.mapWith(Number),
+  noteCount: sql<number>`(select count(*) from task_notes n where n.task_id = ${tasks.id})`.mapWith(Number),
 };
 
 function selectTasks(conn: DbOrTx = db) {
@@ -151,10 +152,20 @@ export async function updateTask(caller: AuthUser, id: string, input: UpdateTask
   });
 }
 
-export async function updateTaskStatus(caller: AuthUser, taskId: string, { status }: UpdateStatusInput) {
+export async function updateTaskStatus(caller: AuthUser, taskId: string, { status, note }: UpdateStatusInput) {
   return db.transaction(async (tx) => {
     const task = await loadTaskFor(caller, taskId, 'forbid', tx);
     if (task.status === status) return (await getTaskById(taskId, tx))!;
+
+    // Finishing a task always records what was done and how long it took.
+    let noteId: string | undefined;
+    if (status === 'done' && note) {
+      const [created] = await tx
+        .insert(taskNotes)
+        .values({ taskId, authorId: caller.id, summary: note.summary, minutesSpent: note.minutesSpent })
+        .returning({ id: taskNotes.id });
+      noteId = created.id;
+    }
 
     await tx
       .update(tasks)
@@ -169,7 +180,7 @@ export async function updateTaskStatus(caller: AuthUser, taskId: string, { statu
       taskId,
       actorId: caller.id,
       type: 'status_changed',
-      data: { from: task.status, to: status },
+      data: { from: task.status, to: status, ...(noteId && note ? { noteId, minutesSpent: note.minutesSpent } : {}) },
     });
     return (await getTaskById(taskId, tx))!;
   });
@@ -199,6 +210,23 @@ export async function restoreTask(caller: AuthUser, id: string) {
     await recordEvent(tx, { taskId: id, actorId: caller.id, type: 'restored' });
     return (await getTaskById(id, tx))!;
   });
+}
+
+/** Notes on a task, newest first. Same visibility as the task: the admin and the assignee. */
+export async function listTaskNotes(caller: AuthUser, taskId: string) {
+  await loadTaskFor(caller, taskId, 'hide');
+  return db
+    .select({
+      id: taskNotes.id,
+      summary: taskNotes.summary,
+      minutesSpent: taskNotes.minutesSpent,
+      createdAt: taskNotes.createdAt,
+      author: { id: users.id, name: users.name },
+    })
+    .from(taskNotes)
+    .innerJoin(users, eq(taskNotes.authorId, users.id))
+    .where(eq(taskNotes.taskId, taskId))
+    .orderBy(desc(taskNotes.createdAt), desc(taskNotes.id));
 }
 
 /** The activity timeline, newest first. People and project names are resolved now, not stored. */

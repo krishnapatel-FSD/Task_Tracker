@@ -7,6 +7,10 @@ interface Props {
   /** create: animates open/closed above the list. edit: always open, docked under its row. */
   open?: boolean;
   initial?: Task;
+  /** Render just the form (inside the task panel), without the collapsing wrapper. */
+  bare?: boolean;
+  /** create: preselect this project (when creating from a project page). */
+  defaultProjectId?: string;
   employees: Employee[];
   projects: ProjectRef[];
   onSaved: (task: Task) => void;
@@ -42,8 +46,9 @@ function validate(form: FormState) {
 }
 
 /** Inline task form. Never a modal: it opens above the list (create) or under its row (edit). */
-export function TaskComposer({ mode, open = true, initial, employees, projects, onSaved, onClose }: Props) {
-  const [form, setForm] = useState<FormState>(initial ? fromTask(initial) : emptyForm);
+export function TaskComposer({ mode, open = true, initial, bare = false, defaultProjectId, employees, projects, onSaved, onClose }: Props) {
+  const blank = defaultProjectId ? { ...emptyForm, projectId: defaultProjectId } : emptyForm;
+  const [form, setForm] = useState<FormState>(initial ? fromTask(initial) : blank);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -53,10 +58,10 @@ export function TaskComposer({ mode, open = true, initial, employees, projects, 
   useEffect(() => {
     if (open) {
       // Wait for the open transition, then focus without scrolling the clip.
-      const timer = window.setTimeout(() => titleRef.current?.focus({ preventScroll: true }), mode === 'create' ? 250 : 0);
+      const timer = window.setTimeout(() => titleRef.current?.focus({ preventScroll: true }), mode === 'create' && !bare ? 250 : 0);
       return () => window.clearTimeout(timer);
     }
-    setForm(initial ? fromTask(initial) : emptyForm);
+    setForm(initial ? fromTask(initial) : blank);
     setErrors({});
     setServerError(null);
   }, [open]);
@@ -249,7 +254,7 @@ export function TaskComposer({ mode, open = true, initial, employees, projects, 
     </form>
   );
 
-  if (mode === 'edit') return formEl;
+  if (mode === 'edit' || bare) return formEl;
 
   return (
     <div className={`composer-wrap${open ? ' is-open' : ''}`} inert={!open}>

@@ -52,6 +52,10 @@ tasksRouter.patch('/:id/status', requireUuidParam, validate(updateStatusSchema),
   res.json(await taskService.updateTaskStatus(req.user!, req.params.id as string, res.locals.body as UpdateStatusInput));
 });
 
+tasksRouter.get('/:id/notes', requireUuidParam, async (req, res) => {
+  res.json(await taskService.listTaskNotes(req.user!, req.params.id as string));
+});
+
 tasksRouter.get('/:id/events', requireUuidParam, async (req, res) => {
   res.json(await taskService.listTaskEvents(req.user!, req.params.id as string));
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth/AuthContext';
-import { formatDateTime, formatDay, timeAgo } from '../format';
+import { formatDateTime, formatDay, formatMinutes, timeAgo } from '../format';
 import { PRIORITY_LABELS, STATUS_LABELS, type Priority, type Status, type TaskEvent, type TaskTimeline } from '../types';
 
 /** The task's activity log as short sentences, loaded when the tab first opens. */
@@ -52,7 +52,9 @@ function describe(event: TaskEvent, name: (id: string) => string): string {
     case 'reassigned':
       return `moved this from ${name(d.fromId)} to ${name(d.toId)}`;
     case 'status_changed':
-      return `set the status to ${STATUS_LABELS[d.to as Status]}`;
+      return typeof d.minutesSpent === 'number'
+        ? `marked it ${STATUS_LABELS[d.to as Status]} (took ${formatMinutes(d.minutesSpent)})`
+        : `set the status to ${STATUS_LABELS[d.to as Status]}`;
     case 'archived':
       return 'deleted this task';
     case 'restored':

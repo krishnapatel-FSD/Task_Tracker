@@ -1,6 +1,7 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import { db, type DbOrTx } from '../db/index.js';
-import { projects, tasks } from '../db/schema.js';
+import { notifications, projects, tasks } from '../db/schema.js';
+import { todayIn } from '../lib/dates.js';
 import { badRequest, notFound } from '../lib/errors.js';
 import type { CreateProjectInput, UpdateProjectInput } from '../validation/schemas.js';
 
@@ -32,6 +33,49 @@ export async function listAllProjects() {
     .leftJoin(tasks, and(eq(tasks.projectId, projects.id), isNull(tasks.archivedAt)))
     .groupBy(projects.id)
     .orderBy(sql`${projects.archivedAt} is not null`, asc(projects.name));
+}
+
+/**
+ * The projects home: one row per active project with counts of live tasks.
+ * Admins see every project and team-wide counts; employees see only projects
+ * where they have tasks, counted over their own tasks. `changedTasks` counts
+ * tasks with unread notifications for the viewer.
+ */
+export async function listProjectBoard(viewer: { id: string; role: 'admin' | 'employee' }) {
+  const today = todayIn();
+  const isAdmin = viewer.role === 'admin';
+  const taskJoin = isAdmin
+    ? and(eq(tasks.projectId, projects.id), isNull(tasks.archivedAt))
+    : and(eq(tasks.projectId, projects.id), isNull(tasks.archivedAt), eq(tasks.assigneeId, viewer.id));
+  const open = sql`${tasks.status} <> 'done'`;
+
+  const rows = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      description: projects.description,
+      colourIndex: projects.colourIndex,
+      totalTasks: count(tasks.id),
+      openTasks: sql<number>`count(${tasks.id}) filter (where ${open})`.mapWith(Number),
+      lateTasks: sql<number>`count(${tasks.id}) filter (where ${open} and ${tasks.deadline} < ${today})`.mapWith(Number),
+      dueToday: sql<number>`count(${tasks.id}) filter (where ${open} and ${tasks.deadline} = ${today})`.mapWith(Number),
+      doneTasks: sql<number>`count(${tasks.id}) filter (where ${tasks.status} = 'done')`.mapWith(Number),
+      nextDeadline: sql<string | null>`min(${tasks.deadline}) filter (where ${open})`,
+      changedTasks: sql<number>`count(distinct ${tasks.id}) filter (where exists (
+        select 1 from ${notifications}
+        where ${notifications.taskId} = ${tasks.id}
+          and ${notifications.userId} = ${viewer.id}
+          and ${notifications.readAt} is null
+          and ${notifications.deliverAfter} <= now()
+      ))`.mapWith(Number),
+    })
+    .from(projects)
+    .leftJoin(tasks, taskJoin)
+    .where(isNull(projects.archivedAt))
+    .groupBy(projects.id)
+    .orderBy(asc(projects.name));
+
+  return isAdmin ? rows : rows.filter((r) => r.totalTasks > 0);
 }
 
 /** Throws 400 unless the project exists and is not archived. */

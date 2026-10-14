@@ -11,6 +11,9 @@ import { insertNotifications } from '../src/services/notificationService.js';
 import { recordEvent } from '../src/services/taskEvents.js';
 import { call, cleanupProjects, login, startServer, stopServer, uniqueName, type Session } from './helpers.js';
 
+/** Marking a task done always carries a completion note. */
+const DONE_NOTE = { summary: 'Finished and checked', minutesSpent: 45 };
+
 let admin: Session;
 let asha: Session;
 let ben: Session;
@@ -91,7 +94,7 @@ describe('who gets notified', () => {
 
   test('an employee status change notifies every admin, never the employee', async () => {
     const task = await makeTask();
-    await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done' } });
+    await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } });
     const rows = (await rowsForTask(task.id)).filter((r) => r.type === 'status_changed');
     assert.ok(rows.length >= 1);
     assert.ok(rows.some((r) => r.userId === admin.user.id));

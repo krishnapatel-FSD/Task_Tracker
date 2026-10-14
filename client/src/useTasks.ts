@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
 import { NOTIFICATIONS_ARRIVED } from './notifications';
-import type { Status, Task, TaskFilterValues } from './types';
+import type { CompletionNote, Status, Task, TaskFilterValues } from './types';
 
 const FLASH_MS = 1600;
 
@@ -76,11 +76,11 @@ export function useTasks(filters: TaskFilterValues) {
   );
 
   const changeStatus = useCallback(
-    async (task: Task, status: Status) => {
+    async (task: Task, status: Status, note?: CompletionNote): Promise<Task | null> => {
       setUpdatingId(task.id);
       setError(null);
       try {
-        const updated = await api.updateTaskStatus(task.id, status);
+        const updated = await api.updateTaskStatus(task.id, status, note);
         setTasks((list) =>
           // Drop the row if it no longer matches the active status filter.
           filters.status && updated.status !== filters.status
@@ -88,8 +88,10 @@ export function useTasks(filters: TaskFilterValues) {
             : list.map((t) => (t.id === updated.id ? updated : t)),
         );
         flash(updated.id);
+        return updated;
       } catch (err) {
         setError(err instanceof ApiError ? err.message : "We couldn't save that status change. Try again.");
+        return null;
       } finally {
         setUpdatingId(null);
       }
