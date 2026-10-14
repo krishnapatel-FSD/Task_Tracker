@@ -4,6 +4,7 @@ import { homePathFor, useAuth } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { Shell } from './components/Shell';
 import { CalendarPage } from './calendar/CalendarPage';
+import { TeamProgressPage } from './progress/TeamProgressPage';
 import { AdminProjects } from './pages/AdminProjects';
 import { TemplatesPage } from './pages/TemplatesPage';
 import { Login } from './pages/Login';
@@ -51,6 +52,14 @@ export function App() {
             element={
               <ProtectedRoute role="admin">
                 <TasksPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/progress"
+            element={
+              <ProtectedRoute role="admin">
+                <TeamProgressPage />
               </ProtectedRoute>
             }
           />

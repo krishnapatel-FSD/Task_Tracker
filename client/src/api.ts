@@ -10,6 +10,7 @@ import type {
   Person,
   Project,
   ProjectBoardRow,
+  ProgressReport,
   ProjectRef,
   Status,
   Task,
@@ -119,6 +120,12 @@ export const api = {
 
   previewSchedule: (rule: Pick<TemplateInput, 'projectId' | 'repeat' | 'weekdays' | 'monthDay' | 'intervalDays' | 'startDate' | 'endDate'>) =>
     request<{ schedule: string; dates: string[] }>('/templates/preview', { method: 'POST', body: JSON.stringify(rule) }),
+
+  getProgress: (q: { from: string; to: string; projectId?: string }) => {
+    const p = new URLSearchParams({ from: q.from, to: q.to });
+    if (q.projectId) p.set('projectId', q.projectId);
+    return request<ProgressReport>(`/progress?${p}`);
+  },
 
   calendarDaysOff: () =>
     request<{ projects: { id: string; skipWeekends: boolean }[]; holidays: { projectId: string; date: string; name: string }[] }>('/calendar/days-off'),

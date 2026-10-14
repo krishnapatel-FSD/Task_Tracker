@@ -8,6 +8,7 @@ import { calendarRouter } from './routes/calendar.js';
 import { checklistRouter, taskChecklistRouter } from './routes/checklist.js';
 import { commentsRouter, taskCommentsRouter } from './routes/comments.js';
 import { meRouter, notificationsRouter } from './routes/notifications.js';
+import { progressRouter } from './routes/progress.js';
 import { projectsRouter } from './routes/projects.js';
 import { reportsRouter } from './routes/reports.js';
 import { tasksRouter } from './routes/tasks.js';
@@ -37,6 +38,7 @@ export function createApp() {
   api.use('/checklist', checklistRouter);
   api.use('/templates', templatesRouter);
   api.use('/calendar', calendarRouter);
+  api.use('/progress', progressRouter);
   api.use('/tasks', tasksRouter);
   api.use('/notifications', notificationsRouter);
   api.use('/me', meRouter);

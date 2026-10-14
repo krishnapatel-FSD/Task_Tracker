@@ -9,6 +9,7 @@ import { PRIORITIES, PRIORITY_LABELS, type CompletionNote, type Employee, type P
 import { useProjects } from '../useProjects';
 import { useTasks } from '../useTasks';
 import { BoardTabs, matchesQuick, QUICK_LABELS, type QuickFilter } from './SummaryCards';
+import { MyProgressCard } from '../progress/MyProgressCard';
 import { KanbanBoard } from './KanbanBoard';
 import { TaskList } from './TaskList';
 import { TaskPanel, type PanelState } from './TaskPanel';
@@ -262,6 +263,17 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
               <ArrowRight size={14} weight="bold" aria-hidden="true" />
             </span>
           </button>
+        )}
+
+        {mineOnly && (
+          <MyProgressCard
+            refreshKey={tasks.map((t) => `${t.id}:${t.status}:${t.deadline}`).join(',')}
+            onOpenTask={(id) => {
+              setPanel({ kind: 'view', id });
+              setUrlTask(id);
+              markSeen(id);
+            }}
+          />
         )}
 
         <BoardTabs tasks={tasks} value={quick} litIds={litIds} onChange={setQuick} />

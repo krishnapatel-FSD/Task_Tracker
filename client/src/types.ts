@@ -101,6 +101,29 @@ export interface Template extends TemplateInput {
   lastDeadline: string | null;
 }
 
+export type ProgressState = 'done' | 'doneLate' | 'inProgress' | 'todo' | 'late';
+
+export interface PersonProgress {
+  id: string;
+  name: string;
+  total: number;
+  done: number;
+  doneLate: number;
+  inProgress: number;
+  todo: number;
+  late: number;
+  /** null when nothing is due in the period */
+  percentDone: number | null;
+  minutesLogged: number;
+  tasks: { id: string; title: string; deadline: string; state: ProgressState; project: ProjectRef }[];
+}
+
+export interface ProgressReport {
+  from: string;
+  to: string;
+  people: PersonProgress[];
+}
+
 export interface Holiday {
   date: string;
   name: string;
