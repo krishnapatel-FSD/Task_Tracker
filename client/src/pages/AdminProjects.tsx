@@ -147,7 +147,7 @@ function ProjectRow({ project, onChanged }: { project: Project; onChanged: () =>
   );
 }
 
-/** Weekends and holidays for this project: repeating tasks never fall due on them. */
+/** Weekends and holidays for this project, marked on the calendar. */
 function DaysOff({ project, onChanged }: { project: Project; onChanged: () => void }) {
   const [holidays, setHolidays] = useState<Holiday[] | null>(null);
   const [date, setDate] = useState('');
@@ -181,7 +181,7 @@ function DaysOff({ project, onChanged }: { project: Project; onChanged: () => vo
         />
         Weekends are days off
       </label>
-      <p className="field-hint">Repeating tasks that would fall due on a day off move to the next working day.</p>
+      <p className="field-hint">The calendar flags deadlines that fall on a day off.</p>
       {holidays && holidays.length > 0 && (
         <ul className="holiday-list">
           {holidays.map((h) => (

@@ -47,7 +47,7 @@ export const projects = pgTable('projects', {
   name: varchar('name', { length: 100 }).notNull().unique(),
   description: text('description'),
   colourIndex: smallint('colour_index').notNull().default(0),
-  /** Recurring tasks never fall due on a Saturday or Sunday in this project. */
+  /** The calendar marks deadlines on a Saturday or Sunday in this project as days off. */
   skipWeekends: boolean('skip_weekends').notNull().default(true),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -67,8 +67,6 @@ export const tasks = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     archivedBy: uuid('archived_by').references((): AnyPgColumn => users.id),
-    /** Set when the task was made from a template (by hand or by a repeat schedule). */
-    templateId: uuid('template_id').references((): AnyPgColumn => taskTemplates.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -277,56 +275,7 @@ export const taskChecklistItems = pgTable(
   (t) => [index('task_checklist_items_task_idx').on(t.taskId, t.position)],
 );
 
-export const repeatEnum = pgEnum('repeat', ['none', 'daily', 'weekly', 'monthly', 'interval']);
-
-/**
- * A reusable task. With a repeat rule it also makes tasks on a schedule: the nightly job
- * creates each one `leadDays` before its deadline.
- */
-export const taskTemplates = pgTable('task_templates', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  name: varchar('name', { length: 100 }).notNull(),
-  title: varchar('title', { length: 150 }).notNull(),
-  description: text('description').notNull(),
-  projectId: uuid('project_id').notNull().references(() => projects.id),
-  /** Required when the template repeats. */
-  assigneeId: uuid('assignee_id').references(() => users.id),
-  priority: priorityEnum('priority').notNull(),
-  checklist: jsonb('checklist').$type<string[]>().notNull().default([]),
-  repeat: repeatEnum('repeat').notNull().default('none'),
-  /** weekly: 0 = Sunday ... 6 = Saturday. */
-  weekdays: smallint('weekdays').array().notNull().default(sql`'{}'::smallint[]`),
-  /** monthly: 1 to 31; shorter months use their last day. */
-  monthDay: smallint('month_day'),
-  /** interval: every N days from the start date. */
-  intervalDays: smallint('interval_days'),
-  startDate: date('start_date').notNull(),
-  endDate: date('end_date'),
-  /** How many days before the deadline the task is created. */
-  leadDays: smallint('lead_days').notNull().default(3),
-  paused: boolean('paused').notNull().default(false),
-  createdBy: uuid('created_by').notNull().references(() => users.id),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  archivedAt: timestamp('archived_at', { withTimezone: true }),
-});
-
-/**
- * One row per task a repeat schedule created. The unique key makes the job safe to retry:
- * a template can never make two tasks for the same deadline.
- */
-export const taskOccurrences = pgTable(
-  'task_occurrences',
-  {
-    templateId: uuid('template_id').notNull().references(() => taskTemplates.id),
-    deadline: date('deadline').notNull(),
-    taskId: uuid('task_id').references(() => tasks.id),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [primaryKey({ columns: [t.templateId, t.deadline] })],
-);
-
-/** Days off in a project: recurring tasks move past them. */
+/** Days off in a project, marked on the calendar. */
 export const projectHolidays = pgTable(
   'project_holidays',
   {

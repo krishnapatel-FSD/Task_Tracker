@@ -21,8 +21,6 @@ import type {
   TaskInput,
   TaskNote,
   TaskTimeline,
-  Template,
-  TemplateInput,
   User,
 } from './types';
 
@@ -111,18 +109,6 @@ export const api = {
 
   deleteChecklistItem: (id: string) => request<null>(`/checklist/${id}`, { method: 'DELETE' }),
 
-  listTemplates: () => request<Template[]>('/templates'),
-
-  createTemplate: (input: TemplateInput) => request<{ id: string }>('/templates', { method: 'POST', body: JSON.stringify(input) }),
-
-  updateTemplate: (id: string, input: TemplateInput) =>
-    request<{ id: string }>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
-
-  deleteTemplate: (id: string) => request<null>(`/templates/${id}`, { method: 'DELETE' }),
-
-  previewSchedule: (rule: Pick<TemplateInput, 'projectId' | 'repeat' | 'weekdays' | 'monthDay' | 'intervalDays' | 'startDate' | 'endDate'>) =>
-    request<{ schedule: string; dates: string[] }>('/templates/preview', { method: 'POST', body: JSON.stringify(rule) }),
-
   getHandoffDraft: (taskId: string) => request<HandoffDraft>(`/tasks/${taskId}/handoffs/draft`),
 
   listHandoffs: (taskId: string) => request<Handoff[]>(`/tasks/${taskId}/handoffs`),
@@ -173,7 +159,7 @@ export const api = {
     return request<Task[]>(`/tasks${qs ? `?${qs}` : ''}`);
   },
 
-  createTask: (input: TaskInput & { checklist?: string[]; templateId?: string }) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(input) }),
+  createTask: (input: TaskInput) => request<Task>('/tasks', { method: 'POST', body: JSON.stringify(input) }),
 
   updateTask: (id: string, changes: Partial<TaskInput>) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),

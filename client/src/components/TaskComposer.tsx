@@ -1,7 +1,6 @@
-import { X } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api';
-import { PRIORITIES, PRIORITY_LABELS, type Employee, type Priority, type ProjectRef, type Task, type TaskInput, type Template } from '../types';
+import { PRIORITIES, PRIORITY_LABELS, type Employee, type Priority, type ProjectRef, type Task, type TaskInput } from '../types';
 
 interface Props {
   mode: 'create' | 'edit';
@@ -54,33 +53,6 @@ export function TaskComposer({ mode, open = true, initial, bare = false, default
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
-  // create: start from a template, which also brings its checklist
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [templateId, setTemplateId] = useState('');
-  const [checklist, setChecklist] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (mode === 'create') api.listTemplates().then(setTemplates).catch(() => setTemplates([]));
-  }, [mode]);
-
-  function applyTemplate(id: string) {
-    setTemplateId(id);
-    const t = templates.find((x) => x.id === id);
-    if (!t) {
-      setChecklist([]);
-      return;
-    }
-    setForm((f) => ({
-      ...f,
-      title: t.title,
-      description: t.description,
-      projectId: defaultProjectId ?? t.projectId,
-      assigneeId: t.assigneeId ?? f.assigneeId,
-      priority: t.priority,
-    }));
-    setChecklist(t.checklist);
-    setErrors({});
-  }
   const idPrefix = mode === 'edit' && initial ? `edit-${initial.id}` : 'composer';
 
   useEffect(() => {
@@ -90,8 +62,6 @@ export function TaskComposer({ mode, open = true, initial, bare = false, default
       return () => window.clearTimeout(timer);
     }
     setForm(initial ? fromTask(initial) : blank);
-    setTemplateId('');
-    setChecklist([]);
     setErrors({});
     setServerError(null);
   }, [open]);
@@ -133,7 +103,7 @@ export function TaskComposer({ mode, open = true, initial, bare = false, default
         }
         onSaved(await api.updateTask(initial.id, changes));
       } else {
-        onSaved(await api.createTask({ ...values, ...(checklist.length && { checklist }), ...(templateId && { templateId }) }));
+        onSaved(await api.createTask(values));
       }
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : "We couldn't save the task. Check your connection and try again.");
@@ -166,20 +136,6 @@ export function TaskComposer({ mode, open = true, initial, bare = false, default
       <h2 id={`${idPrefix}-heading`} className="composer-heading">
         {mode === 'edit' ? 'Edit task' : 'New task'}
       </h2>
-
-      {mode === 'create' && templates.length > 0 && (
-        <label className="field composer-template">
-          <span className="field-label">Start from a template (optional)</span>
-          <select value={templateId} onChange={(e) => applyTemplate(e.target.value)}>
-            <option value="">Blank task</option>
-            {templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
 
       <div className="composer-grid">
         <label className="field field-title">
@@ -279,22 +235,6 @@ export function TaskComposer({ mode, open = true, initial, bare = false, default
           {fieldError('description')}
         </label>
       </div>
-
-      {mode === 'create' && checklist.length > 0 && (
-        <div className="field composer-checklist">
-          <span className="field-label">Checklist from the template</span>
-          <ol className="template-step-list">
-            {checklist.map((s, i) => (
-              <li key={`${i}-${s}`}>
-                <span>{s}</span>
-                <button type="button" className="icon-button" aria-label={`Remove "${s}"`} onClick={() => setChecklist((l) => l.filter((_, j) => j !== i))}>
-                  <X size={14} weight="bold" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
 
       {serverError && (
         <p className="banner banner-error" role="alert">

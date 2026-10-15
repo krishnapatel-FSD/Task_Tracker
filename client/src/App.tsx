@@ -6,7 +6,6 @@ import { Shell } from './components/Shell';
 import { CalendarPage } from './calendar/CalendarPage';
 import { TeamProgressPage } from './progress/TeamProgressPage';
 import { AdminProjects } from './pages/AdminProjects';
-import { TemplatesPage } from './pages/TemplatesPage';
 import { Login } from './pages/Login';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { ProjectPage } from './projects/ProjectPage';
@@ -60,14 +59,6 @@ export function App() {
             element={
               <ProtectedRoute role="admin">
                 <TeamProgressPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/templates"
-            element={
-              <ProtectedRoute role="admin">
-                <TemplatesPage />
               </ProtectedRoute>
             }
           />

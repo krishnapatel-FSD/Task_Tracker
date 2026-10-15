@@ -58,9 +58,6 @@ export interface Task {
   commentCount: number;
   checklistTotal: number;
   checklistDone: number;
-  templateId: string | null;
-  /** Made by a repeat schedule. */
-  repeats: boolean;
   /** Handed to the assignee, who hasn't accepted it yet (the task is locked for them). */
   handoffPending: boolean;
 }
@@ -93,36 +90,6 @@ export interface ChecklistItem {
   done: boolean;
   doneAt: string | null;
   doneBy: Employee | null;
-}
-
-export type Repeat = 'none' | 'daily' | 'weekly' | 'monthly' | 'interval';
-
-export interface TemplateInput {
-  name: string;
-  title: string;
-  description: string;
-  projectId: string;
-  assigneeId: string | null;
-  priority: Priority;
-  checklist: string[];
-  repeat: Repeat;
-  weekdays: number[];
-  monthDay: number | null;
-  intervalDays: number | null;
-  startDate: string;
-  endDate: string | null;
-  leadDays: number;
-  paused: boolean;
-}
-
-export interface Template extends TemplateInput {
-  id: string;
-  project: ProjectRef;
-  assignee: Employee | null;
-  /** "Every Monday and Thursday" */
-  schedule: string;
-  nextDeadline: string | null;
-  lastDeadline: string | null;
 }
 
 export type ProgressState = 'done' | 'doneLate' | 'inProgress' | 'todo' | 'late';

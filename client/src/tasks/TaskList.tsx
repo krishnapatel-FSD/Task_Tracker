@@ -1,4 +1,4 @@
-import { CaretDown, CaretRight, ArrowsLeftRight, ChatCircle, ListChecks, Repeat, NotePencil, Paperclip } from '@phosphor-icons/react';
+import { CaretDown, CaretRight, ArrowsLeftRight, ChatCircle, ListChecks, NotePencil, Paperclip } from '@phosphor-icons/react';
 import { useState, type ReactNode } from 'react';
 import { daysUntil, isLate, lineIndexFor, todayIso } from '../timetable';
 import type { Status, Task } from '../types';
@@ -159,12 +159,6 @@ function Row({ task, showAssignee, byProject, employeeIds, lit, selectedId, upda
             <span className="handoff-pill">
               <ArrowsLeftRight size={12} weight="bold" aria-hidden="true" />
               Handoff waiting
-            </span>
-          )}
-          {task.repeats && (
-            <span className="row-files" title="Made by a repeat schedule">
-              <Repeat size={13} weight="bold" aria-hidden="true" />
-              Repeats
             </span>
           )}
           {task.checklistTotal > 0 && (

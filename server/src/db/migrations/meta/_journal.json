@@ -71,6 +71,13 @@
       "when": 1792041236314,
       "tag": "0009_lock_tables_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792054092306,
+      "tag": "0010_remove_templates",
+      "breakpoints": true
     }
   ]
 }

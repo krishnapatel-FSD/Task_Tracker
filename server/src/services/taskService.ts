@@ -25,9 +25,6 @@ const taskFields = {
   commentCount: sql<number>`(select count(*) from task_comments c where c.task_id = ${tasks.id} and c.deleted_at is null)`.mapWith(Number),
   checklistTotal: sql<number>`(select count(*) from task_checklist_items i where i.task_id = ${tasks.id})`.mapWith(Number),
   checklistDone: sql<number>`(select count(*) from task_checklist_items i where i.task_id = ${tasks.id} and i.done_at is not null)`.mapWith(Number),
-  templateId: tasks.templateId,
-  /** Made by a repeat schedule (shows a "Repeats" badge). */
-  repeats: sql<boolean>`exists (select 1 from task_occurrences o where o.task_id = ${tasks.id})`,
   /** Handed to the assignee, who hasn't accepted it yet. */
   handoffPending: sql<boolean>`exists (select 1 from task_handoffs h where h.task_id = ${tasks.id} and h.accepted_at is null)`,
 };

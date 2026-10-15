@@ -13,7 +13,6 @@ import { progressRouter } from './routes/progress.js';
 import { projectsRouter } from './routes/projects.js';
 import { reportsRouter } from './routes/reports.js';
 import { tasksRouter } from './routes/tasks.js';
-import { templatesRouter } from './routes/templates.js';
 import { usersRouter } from './routes/users.js';
 // Registers the task-event listener that fans events out into notifications.
 import './services/notificationService.js';
@@ -39,7 +38,6 @@ export function createApp() {
   api.use('/tasks/:id/checklist', taskChecklistRouter);
   api.use('/tasks/:id/handoffs', taskHandoffsRouter);
   api.use('/checklist', checklistRouter);
-  api.use('/templates', templatesRouter);
   api.use('/calendar', calendarRouter);
   api.use('/progress', progressRouter);
   api.use('/tasks', tasksRouter);

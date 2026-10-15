@@ -47,7 +47,7 @@ const projectId: (req: { params: Record<string, string | string[] | undefined> }
   return id;
 };
 
-// Days off: recurring tasks move past them. Read by anyone; changed by the admin.
+// Days off, shown on the calendar. Read by anyone; changed by the admin.
 projectsRouter.get('/:id/holidays', async (req, res) => {
   res.json(await projectService.listHolidays(projectId(req)));
 });

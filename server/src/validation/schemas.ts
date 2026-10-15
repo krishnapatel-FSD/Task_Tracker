@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { priorityEnum, repeatEnum, statusEnum } from '../db/schema.js';
+import { priorityEnum, statusEnum } from '../db/schema.js';
 
 const isRealDate = (value: string) => {
   const d = new Date(`${value}T00:00:00Z`);
@@ -31,10 +31,8 @@ const checklist = z.array(checklistText).max(30, 'At most 30 checklist items');
 
 export const createTaskSchema = z.object({
   ...taskFields,
-  /** Steps to start the task with, e.g. copied from a template. */
+  /** Steps to start the task with. */
   checklist: checklist.optional(),
-  /** The template the form was filled from, if any. */
-  templateId: z.uuid().optional(),
 });
 
 export const updateTaskSchema = z
@@ -119,55 +117,6 @@ export const updateChecklistItemSchema = z
   .object({ text: checklistText, done: z.boolean() })
   .partial()
   .refine((v) => Object.keys(v).length > 0, 'Send text or done');
-
-/** Repeat rule fields; checked together so each kind has what it needs. */
-const ruleFields = {
-  repeat: z.enum(repeatEnum.enumValues, 'Repeat must be none, daily, weekly, monthly or interval'),
-  weekdays: z.array(z.number().int().min(0).max(6)).max(7).default([]),
-  monthDay: z.number().int().min(1).max(31).nullable().default(null),
-  intervalDays: z.number().int().min(2, 'Repeat every 2 days or more').max(365).nullable().default(null),
-  startDate: dateString('Start date'),
-  endDate: dateString('End date').nullable().default(null),
-  leadDays: z.number().int().min(0).max(30, 'Create tasks at most 30 days ahead').default(3),
-};
-
-type RuleShape = {
-  repeat: string;
-  weekdays: number[];
-  monthDay: number | null;
-  intervalDays: number | null;
-  startDate: string;
-  endDate: string | null;
-};
-
-function checkRule(v: RuleShape, ctx: z.RefinementCtx) {
-  if (v.repeat === 'weekly' && v.weekdays.length === 0) ctx.addIssue({ code: 'custom', path: ['weekdays'], message: 'Pick at least one day of the week' });
-  if (v.repeat === 'monthly' && v.monthDay === null) ctx.addIssue({ code: 'custom', path: ['monthDay'], message: 'Pick a day of the month' });
-  if (v.repeat === 'interval' && v.intervalDays === null) ctx.addIssue({ code: 'custom', path: ['intervalDays'], message: 'Say how many days apart' });
-  if (v.endDate && v.endDate < v.startDate) ctx.addIssue({ code: 'custom', path: ['endDate'], message: 'End date must be on or after the start date' });
-}
-
-export const templateSchema = z
-  .object({
-    name: z.string().trim().min(1, 'Name the template').max(100, 'Keep the name to 100 characters'),
-    title: taskFields.title,
-    description: taskFields.description,
-    projectId: taskFields.projectId,
-    assigneeId: z.uuid('Assignee must be a valid id').nullable().default(null),
-    priority: taskFields.priority,
-    checklist: checklist.default([]),
-    paused: z.boolean().default(false),
-    ...ruleFields,
-  })
-  .superRefine((v, ctx) => {
-    checkRule(v, ctx);
-    if (v.repeat !== 'none' && !v.assigneeId) ctx.addIssue({ code: 'custom', path: ['assigneeId'], message: 'A repeating template needs someone to assign the tasks to' });
-  });
-export type TemplateInput = z.infer<typeof templateSchema>;
-
-/** Preview the next deadlines for a rule before saving it. */
-export const previewRuleSchema = z.object({ projectId: taskFields.projectId, ...ruleFields }).superRefine(checkRule);
-export type PreviewRuleInput = z.infer<typeof previewRuleSchema>;
 
 const handoffLine = z.string().trim().min(1).max(300, 'Keep each line to 300 characters');
 
