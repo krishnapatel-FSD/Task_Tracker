@@ -64,6 +64,13 @@
       "when": 1791979266900,
       "tag": "0008_task_handoffs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792041236314,
+      "tag": "0009_lock_tables_rls",
+      "breakpoints": true
     }
   ]
 }

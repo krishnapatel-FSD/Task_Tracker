@@ -9,8 +9,21 @@ function required(name: string): string {
   return value;
 }
 
+const DATABASE_URL = required('DATABASE_URL');
+
+/** Supabase (and most hosted Postgres) needs TLS; local Docker doesn't. */
+function databaseSsl(): boolean {
+  const flag = process.env.DATABASE_SSL;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  return /supabase\.(co|com)/.test(DATABASE_URL);
+}
+
 export const env = {
-  DATABASE_URL: required('DATABASE_URL'),
+  DATABASE_URL,
+  DATABASE_SSL: databaseSsl(),
+  /** Optional path to the database's CA certificate (Supabase: Settings > Database > SSL). Verifies the server when set. */
+  DATABASE_SSL_CA: process.env.DATABASE_SSL_CA ?? '',
   JWT_SECRET: required('JWT_SECRET'),
   PORT: Number(process.env.PORT ?? 4000),
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
@@ -24,5 +37,11 @@ export const env = {
   /** Scheduled jobs run in the server process. Off for tests and extra API-only instances. */
   JOBS_ENABLED: (process.env.JOBS_ENABLED ?? 'true') === 'true',
   UPLOAD_DIR: path.resolve(process.env.UPLOAD_DIR ?? 'uploads'),
+  /** Where attachment bytes live: 'local' (UPLOAD_DIR) or 'supabase' (a private Storage bucket). */
+  STORAGE_DRIVER: (process.env.STORAGE_DRIVER ?? 'local') as 'local' | 'supabase',
+  SUPABASE_URL: (process.env.SUPABASE_URL ?? '').replace(/\/+$/, ''),
+  /** Server only. Never send this to the browser. */
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
+  SUPABASE_BUCKET: process.env.SUPABASE_BUCKET ?? 'attachments',
   MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB ?? 10),
 };

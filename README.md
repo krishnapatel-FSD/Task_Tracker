@@ -61,6 +61,20 @@ All use the password `password123`.
 | `JOBS_ENABLED` | `true` | Run scheduled jobs in this process |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | `uploads`, `10` | Attachment storage folder and size limit |
 
+## Running on Supabase
+
+The API keeps its own sign-in and permission checks; Supabase provides the Postgres database and, optionally, file storage.
+
+1. In Supabase, turn off **Settings > Data API** (the app never uses it). Migration `0009` also enables row-level security on every table, so the public `anon` key can read nothing even if the API is on.
+2. Create a **private** Storage bucket named `attachments` (10 MB file limit).
+3. In `server/.env`:
+   - `DATABASE_URL` = the **Session pooler** connection string (port **5432**). Don't use the 6543 transaction pooler: the background jobs use session advisory locks. TLS turns on automatically for Supabase hosts; set `DATABASE_SSL_CA` to Supabase's CA file to also verify the certificate.
+   - `STORAGE_DRIVER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (server only), `SUPABASE_BUCKET=attachments`.
+4. `npm run db:migrate`, then either `npm run db:seed` (sample data) or copy your local data in.
+5. To move existing uploads: `npm run files:to-supabase --prefix server` (safe to rerun).
+
+Tests always run against the local Docker database.
+
 ## Scheduled jobs
 
 Started from `server/src/index.ts` (never from `app.ts`, so tests don't run them). Each takes a Postgres advisory lock, so two server instances never double-send.
