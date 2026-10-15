@@ -47,8 +47,11 @@ export const env = {
   MAIL_FROM: process.env.MAIL_FROM ?? 'Task Tracker <no-reply@tasktracker.local>',
   /** Brevo API key: sends all email over HTTPS instead of SMTP (which Railway blocks on smaller plans). */
   BREVO_API_KEY: process.env.BREVO_API_KEY ?? '',
-  /** Running on a host (Railway) rather than a laptop: sign-up then needs real email for its codes. */
-  IS_HOSTED: Boolean(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production'),
+  /**
+   * Local development only: print sign-up codes in the server log, so sign-up works without
+   * email. Never set this on a host: without real email, sign-up there stays closed.
+   */
+  SIGNUP_CODES_IN_LOG: process.env.SIGNUP_CODES_IN_LOG === 'true',
   /** Scheduled jobs run in the server process. Off for tests and extra API-only instances. */
   JOBS_ENABLED: (process.env.JOBS_ENABLED ?? 'true') === 'true',
   UPLOAD_DIR: path.resolve(process.env.UPLOAD_DIR ?? 'uploads'),

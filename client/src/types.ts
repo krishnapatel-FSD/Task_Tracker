@@ -15,6 +15,12 @@ export interface Account extends User {
   openTasks: number;
 }
 
+/** How the server sends email (admin's email check). */
+export interface MailStatus {
+  transport: 'brevo' | 'smtp' | 'off';
+  from: string;
+}
+
 /** What the sign-in page offers. */
 export interface SignInOptions {
   /** Email domains that may sign up; empty means sign-up is closed. */

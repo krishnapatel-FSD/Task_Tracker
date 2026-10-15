@@ -2277,6 +2277,34 @@ textarea {
 
 /* ---------- People page ---------- */
 
+.email-check {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-panel);
+}
+.email-check-status {
+  font-size: var(--text-md);
+  color: var(--ink-2);
+}
+.email-check-status.is-off {
+  color: var(--late-ink);
+  font-weight: 600;
+}
+.email-check-form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.email-check-form input {
+  flex: 1;
+  min-width: 12rem;
+  max-width: 22rem;
+}
+
 .person-row {
   flex-wrap: wrap;
 }

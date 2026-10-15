@@ -10,4 +10,5 @@ process.env.DATABASE_SSL = 'false';
 process.env.STORAGE_DRIVER = 'local';
 // Sign-up and Google sign-in, with a domain only the tests use.
 process.env.SIGNUP_EMAIL_DOMAINS = 'signup.test';
+process.env.SIGNUP_CODES_IN_LOG = 'true';
 process.env.GOOGLE_CLIENT_ID = 'test-client.apps.googleusercontent.com';

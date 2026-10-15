@@ -23,11 +23,8 @@ function session(user: Pick<UserRow, 'id' | 'name' | 'role'>) {
   };
 }
 
-/**
- * Sign-up emails a code, so on a host it needs working email. Locally the code is printed
- * in the server log instead.
- */
-const signupUsable = () => mailEnabled || !env.IS_HOSTED;
+/** Sign-up emails a code, so it needs working email (or, locally, codes printed in the log). */
+const signupUsable = () => mailEnabled || env.SIGNUP_CODES_IN_LOG;
 
 /** What the sign-in page offers: self sign-up (and for which domains) and Google. */
 export function signInOptions() {
@@ -79,8 +76,7 @@ const hashCode = (email: string, code: string) => createHmac('sha256', env.JWT_S
 /** Emails the sign-up code; swapped out in tests. */
 export const signupCodeMailer = {
   async send(to: string, name: string, code: string) {
-    // On a laptop the code is also printed, so sign-up works without a mailbox.
-    if (!env.IS_HOSTED) console.log(`[sign-up code] ${to}: ${code}`);
+    if (env.SIGNUP_CODES_IN_LOG) console.log(`[sign-up code] ${to}: ${code}`);
     await sendMail({
       to,
       subject: `${code} is your Task Tracker code`,

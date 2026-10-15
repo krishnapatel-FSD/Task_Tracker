@@ -155,3 +155,16 @@ describe('People page', () => {
     assert.equal((await call('PATCH', `/users/${person.id}`, { token: admin.token, body: { role: 'employee' } })).status, 200);
   });
 });
+
+describe('email check', () => {
+  test('admin sees how mail goes out and a test to a reserved address is skipped, not faked', async () => {
+    assert.equal((await call('GET', '/mail/status', { token: asha.token })).status, 403);
+    const status = await call('GET', '/mail/status', { token: admin.token });
+    assert.equal(status.status, 200);
+    assert.ok(['brevo', 'smtp', 'off'].includes(status.body.transport));
+    const res = await call('POST', '/mail/test', { token: admin.token, body: { to: 'someone@example.com' } });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.outcome, 'skipped');
+    assert.equal((await call('POST', '/mail/test', { token: admin.token, body: { to: 'nope' } })).status, 400);
+  });
+});

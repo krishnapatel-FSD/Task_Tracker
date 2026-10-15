@@ -67,7 +67,7 @@ All use the password `password123`.
 ## Accounts
 
 - **Admin adds people:** People page (`/admin/people`): add someone with a starting password, switch employee/admin, reset a password.
-- **Sign-up:** "Create an account" on the sign-in page, only for emails in `SIGNUP_EMAIL_DOMAINS`. A 6-digit code is emailed (valid 10 minutes, 5 tries) and the account is only created once it's entered, so nobody can claim an inbox they can't read. New accounts are employees. On a host, sign-up stays closed until email works (`BREVO_API_KEY` or `SMTP_URL`); locally the code is also printed in the server log.
+- **Sign-up:** "Create an account" on the sign-in page, only for emails in `SIGNUP_EMAIL_DOMAINS`. A 6-digit code is emailed (valid 10 minutes, 5 tries) and the account is only created once it's entered, so nobody can claim an inbox they can't read. New accounts are employees. Sign-up stays closed until email works (`BREVO_API_KEY` or `SMTP_URL`); for local development `SIGNUP_CODES_IN_LOG=true` prints codes in the server log instead. The People page has an **Email check** that shows how mail goes out and sends a test message.
 - **Google:** a known email signs straight in; a new one gets an employee account if its domain is allowed. Set up in Google Cloud Console → APIs & Services → Credentials → *Create OAuth client ID* → *Web application*, add the web app's address (e.g. `https://your-app.vercel.app` and `http://localhost:5173`) under **Authorized JavaScript origins**, and put the client ID in `GOOGLE_CLIENT_ID` on the API. No redirect URI or client secret is needed, and the web app reads the ID from the API, so Vercel needs no change.
 - Accounts live in the app's own `users` table, not in Supabase Authentication.
 
@@ -139,6 +139,7 @@ All under `/api`; errors are `{ "error": "message" }`. Archived (deleted) tasks 
 | `POST /auth/signup/verify` | Public | `{ email, code }` → `{ token, user }`; creates the account |
 | `POST /auth/google` | Public | `{ credential }` (Google ID token) → `{ token, user }` |
 | `GET /users` | Logged in | Employees `{ id, name }` |
+| `GET /mail/status`, `POST /mail/test` | Admin | How email goes out; send a test `{ to }` and see Brevo's answer |
 | `GET /users/accounts`, `POST /users`, `PATCH /users/:id` | Admin | People page: list with emails; add; change name, role or password |
 | `GET /projects` | Logged in | Active projects; `?all=true` (admin) adds archived ones and task counts |
 | `POST /projects`, `PATCH /projects/:id` | Admin | Create; rename, describe, archive or restore |

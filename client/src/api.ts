@@ -1,5 +1,6 @@
 import type {
   Account,
+  MailStatus,
   Attachment,
   ChecklistItem,
   Handoff,
@@ -111,6 +112,10 @@ export const api = {
     request<Session>('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
 
   listAccounts: () => request<Account[]>('/users/accounts'),
+
+  mailStatus: () => request<MailStatus>('/mail/status'),
+
+  sendTestEmail: (to: string) => request<MailStatus & { outcome: 'sent' | 'skipped'; id?: string; reason?: string }>('/mail/test', { method: 'POST', body: JSON.stringify({ to }) }),
 
   createAccount: (input: { name: string; email: string; role: Role; password: string }) =>
     request<Account>('/users', { method: 'POST', body: JSON.stringify(input) }),

@@ -7,6 +7,7 @@ import { authRouter } from './routes/auth.js';
 import { calendarRouter } from './routes/calendar.js';
 import { checklistRouter, taskChecklistRouter } from './routes/checklist.js';
 import { commentsRouter, taskCommentsRouter } from './routes/comments.js';
+import { mailRouter } from './routes/mail.js';
 import { meRouter, notificationsRouter } from './routes/notifications.js';
 import { taskHandoffsRouter } from './routes/handoffs.js';
 import { progressRouter } from './routes/progress.js';
@@ -44,6 +45,7 @@ export function createApp() {
   api.use('/notifications', notificationsRouter);
   api.use('/me', meRouter);
   api.use('/reports', reportsRouter);
+  api.use('/mail', mailRouter);
 
   app.use('/api', api);
   app.use(notFoundHandler);
