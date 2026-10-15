@@ -11,6 +11,11 @@ function required(name: string): string {
 
 const DATABASE_URL = required('DATABASE_URL');
 
+const CLIENT_ORIGINS = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
 /** Supabase (and most hosted Postgres) needs TLS; local Docker doesn't. */
 function databaseSsl(): boolean {
   const flag = process.env.DATABASE_SSL;
@@ -26,9 +31,15 @@ export const env = {
   DATABASE_SSL_CA: process.env.DATABASE_SSL_CA ?? '',
   JWT_SECRET: required('JWT_SECRET'),
   PORT: Number(process.env.PORT ?? 4000),
-  CLIENT_ORIGIN: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  /** Web app addresses allowed to call the API, comma-separated (production, previews). */
+  CLIENT_ORIGINS: CLIENT_ORIGINS,
   /** Base URL of the web app, used for links in emails. */
-  APP_URL: process.env.APP_URL ?? process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
+  APP_URL: (process.env.APP_URL ?? CLIENT_ORIGINS[0]).replace(/\/+$/, ''),
+  /**
+   * Proxies in front of the API (Railway has one). Needed so rate limits see the visitor's
+   * address. Defaults to 1 on Railway and 0 elsewhere.
+   */
+  TRUST_PROXY: Number(process.env.TRUST_PROXY ?? (process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT ? 1 : 0)),
   /** Time zone for "today", reminders and report weeks. */
   REPORT_TZ: process.env.REPORT_TZ ?? 'Asia/Kolkata',
   /** Unset disables email: notifications stay in-app and sends are logged instead. */

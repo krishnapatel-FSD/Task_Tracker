@@ -75,6 +75,13 @@ The API keeps its own sign-in and permission checks; Supabase provides the Postg
 
 Tests always run against the local Docker database: `TEST_DATABASE_URL` in `server/.env` (loaded by `server/test/setup-env.ts`), with local file storage, whatever `DATABASE_URL` and `STORAGE_DRIVER` say.
 
+## Deploying (Railway + Vercel)
+
+- **API and jobs on Railway**: root directory `server`. `server/railway.json` sets the build (`npm run build`), start (`npm start`), health check (`/api/health`) and one replica. Set the variables from `server/.env.example` in Railway; `TRUST_PROXY` is set to 1 automatically there. Keep the service always on: the scheduled jobs run inside it.
+- **Web app on Vercel**: root directory `client`. `client/vercel.json` sends every route to `index.html`. Set `VITE_API_URL=https://<railway-domain>/api` before building.
+- `CLIENT_ORIGIN` on Railway takes a comma-separated list (production address plus any Vercel preview addresses); `APP_URL` is the address used in email links.
+- Run `npm run db:migrate --prefix server` against Supabase before pushing code that adds a migration.
+
 ## Scheduled jobs
 
 Started from `server/src/index.ts` (never from `app.ts`, so tests don't run them). Each takes a Postgres advisory lock, so two server instances never double-send.

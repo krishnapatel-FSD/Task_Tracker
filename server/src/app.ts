@@ -20,8 +20,9 @@ import './services/notificationService.js';
 
 export function createApp() {
   const app = express();
+  if (env.TRUST_PROXY > 0) app.set('trust proxy', env.TRUST_PROXY);
 
-  app.use(cors({ origin: env.CLIENT_ORIGIN, exposedHeaders: ['Content-Disposition'] }));
+  app.use(cors({ origin: env.CLIENT_ORIGINS, exposedHeaders: ['Content-Disposition'] }));
   app.use(express.json());
 
   const api = Router();
