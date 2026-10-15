@@ -58,6 +58,7 @@ All use the password `password123`.
 | `CLIENT_ORIGIN`, `APP_URL` | `http://localhost:5173` | CORS origin; base URL for links in emails |
 | `REPORT_TZ` | `Asia/Kolkata` | Time zone for "today", reminders and report weeks |
 | `SMTP_URL`, `MAIL_FROM` | empty | Email transport; empty turns email off |
+| `BREVO_API_KEY` | empty | Send all email through Brevo's API instead of SMTP (Railway blocks SMTP on smaller plans). `MAIL_FROM` must be a sender verified in Brevo |
 | `JOBS_ENABLED` | `true` | Run scheduled jobs in this process |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | `uploads`, `10` | Attachment storage folder and size limit |
 | `SIGNUP_EMAIL_DOMAINS` | empty | Domains that may create their own account (sign-up page and Google), e.g. `decacorpus.com`; empty closes sign-up |
@@ -66,7 +67,7 @@ All use the password `password123`.
 ## Accounts
 
 - **Admin adds people:** People page (`/admin/people`): add someone with a starting password, switch employee/admin, reset a password.
-- **Sign-up:** "Create an account" on the sign-in page, only for emails in `SIGNUP_EMAIL_DOMAINS`. New accounts are employees.
+- **Sign-up:** "Create an account" on the sign-in page, only for emails in `SIGNUP_EMAIL_DOMAINS`. A 6-digit code is emailed (valid 10 minutes, 5 tries) and the account is only created once it's entered, so nobody can claim an inbox they can't read. New accounts are employees. On a host, sign-up stays closed until email works (`BREVO_API_KEY` or `SMTP_URL`); locally the code is also printed in the server log.
 - **Google:** a known email signs straight in; a new one gets an employee account if its domain is allowed. Set up in Google Cloud Console → APIs & Services → Credentials → *Create OAuth client ID* → *Web application*, add the web app's address (e.g. `https://your-app.vercel.app` and `http://localhost:5173`) under **Authorized JavaScript origins**, and put the client ID in `GOOGLE_CLIENT_ID` on the API. No redirect URI or client secret is needed, and the web app reads the ID from the API, so Vercel needs no change.
 - Accounts live in the app's own `users` table, not in Supabase Authentication.
 
@@ -134,7 +135,8 @@ All under `/api`; errors are `{ "error": "message" }`. Archived (deleted) tasks 
 | --- | --- | --- |
 | `POST /auth/login` | Public | `{ email, password }` → `{ token, user }` |
 | `GET /auth/options` | Public | `{ signupDomains, googleClientId }` for the sign-in page |
-| `POST /auth/signup` | Public | `{ name, email, password }` → `{ token, user }`; allowed domains only |
+| `POST /auth/signup` | Public | `{ name, email, password }` → 202, emails a 6-digit code; allowed domains only |
+| `POST /auth/signup/verify` | Public | `{ email, code }` → `{ token, user }`; creates the account |
 | `POST /auth/google` | Public | `{ credential }` (Google ID token) → `{ token, user }` |
 | `GET /users` | Logged in | Employees `{ id, name }` |
 | `GET /users/accounts`, `POST /users`, `PATCH /users/:id` | Admin | People page: list with emails; add; change name, role or password |

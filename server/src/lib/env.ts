@@ -45,6 +45,10 @@ export const env = {
   /** Unset disables email: notifications stay in-app and sends are logged instead. */
   SMTP_URL: process.env.SMTP_URL ?? '',
   MAIL_FROM: process.env.MAIL_FROM ?? 'Task Tracker <no-reply@tasktracker.local>',
+  /** Brevo API key: sends all email over HTTPS instead of SMTP (which Railway blocks on smaller plans). */
+  BREVO_API_KEY: process.env.BREVO_API_KEY ?? '',
+  /** Running on a host (Railway) rather than a laptop: sign-up then needs real email for its codes. */
+  IS_HOSTED: Boolean(process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_ENVIRONMENT || process.env.NODE_ENV === 'production'),
   /** Scheduled jobs run in the server process. Off for tests and extra API-only instances. */
   JOBS_ENABLED: (process.env.JOBS_ENABLED ?? 'true') === 'true',
   UPLOAD_DIR: path.resolve(process.env.UPLOAD_DIR ?? 'uploads'),

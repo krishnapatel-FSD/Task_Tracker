@@ -28,6 +28,9 @@ const role = z.enum(['admin', 'employee'], 'Role must be admin or employee');
 export const signupSchema = z.object({ name: personName, email, password });
 export type SignupInput = z.infer<typeof signupSchema>;
 
+export const verifySignupSchema = z.object({ email, code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code') });
+export type VerifySignupInput = z.infer<typeof verifySignupSchema>;
+
 export const googleLoginSchema = z.object({ credential: z.string().min(20, 'Missing Google sign-in token') });
 
 export const createUserSchema = z.object({ name: personName, email, role, password });

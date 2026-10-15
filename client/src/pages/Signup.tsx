@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import type { Session } from '../api';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { homePathFor, useAuth } from '../auth/AuthContext';
@@ -16,6 +17,8 @@ export function Signup() {
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Step 2: the address the code went to.
+  const [sentTo, setSentTo] = useState<{ email: string; minutes: number } | null>(null);
 
   if (user) return <Navigate to={homePathFor(user.role)} replace />;
 
@@ -39,12 +42,29 @@ export function Signup() {
     setSubmitting(true);
     setError(null);
     try {
-      const created = startSession(await api.signup(name.trim(), email.trim(), password));
-      navigate(homePathFor(created.role), { replace: true });
+      const sent = await api.signup(name.trim(), email.trim(), password);
+      setSentTo({ email: sent.email, minutes: sent.expiresInMinutes });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "We couldn't reach the server. Try again in a moment.");
+    } finally {
       setSubmitting(false);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <AuthLayout>
+        <VerifyCode
+          sentTo={sentTo}
+          onResend={() => api.signup(name.trim(), email.trim(), password).then(() => undefined)}
+          onVerified={(session) => navigate(homePathFor(startSession(session).role), { replace: true })}
+          onBack={() => {
+            setSentTo(null);
+            setError(null);
+          }}
+        />
+      </AuthLayout>
+    );
   }
 
   // Sign-up closed on this server: say so instead of showing a form that can't work.
@@ -73,7 +93,7 @@ export function Signup() {
     <AuthLayout>
       <form className="login-form" onSubmit={handleSubmit} noValidate>
         <h1>Create an account</h1>
-        {domainList && <p className="login-lede">For people with a {domainList} email.</p>}
+        {domainList && <p className="login-lede">For people with a {domainList} email. We'll email you a code to confirm it's yours.</p>}
 
         <GoogleSection options={options} onError={setError} text="signup_with" />
 
@@ -106,7 +126,7 @@ export function Signup() {
         )}
 
         <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
-          {submitting ? 'Creating your account…' : 'Create account'}
+          {submitting ? 'Sending your code…' : 'Continue'}
         </button>
 
         <p className="login-note">
@@ -114,5 +134,84 @@ export function Signup() {
         </p>
       </form>
     </AuthLayout>
+  );
+}
+
+/** Step 2: the 6-digit code from the email. The account is created when it's right. */
+function VerifyCode({ sentTo, onResend, onVerified, onBack }: { sentTo: { email: string; minutes: number }; onResend: () => Promise<void>; onVerified: (session: Session) => void; onBack: () => void }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!/^\d{6}$/.test(code)) return setError('Enter the 6-digit code from the email.');
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      onVerified(await api.verifySignup(sentTo.email, code));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "We couldn't reach the server. Try again in a moment.");
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    setError(null);
+    setNotice(null);
+    try {
+      await onResend();
+      setCode('');
+      setNotice('A new code is on its way.');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "We couldn't reach the server. Try again in a moment.");
+    }
+  }
+
+  return (
+    <form className="login-form" onSubmit={handleSubmit} noValidate>
+      <h1>Check your email</h1>
+      <p className="login-lede">
+        We sent a 6-digit code to <strong>{sentTo.email}</strong>. It works for {sentTo.minutes} minutes.
+      </p>
+
+      <label className="field">
+        <span className="field-label">Code</span>
+        <input
+          className="code-input"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+          aria-invalid={Boolean(error)}
+          autoFocus
+        />
+      </label>
+
+      {error && (
+        <p className="banner banner-error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && <p className="person-notice" role="status">{notice}</p>}
+
+      <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+        {busy ? 'Checking…' : 'Create account'}
+      </button>
+
+      <p className="login-note">
+        No email? Check spam, or{' '}
+        <button type="button" className="btn-inline-link" onClick={resend}>
+          send a new code
+        </button>
+        {' · '}
+        <button type="button" className="btn-inline-link" onClick={onBack}>
+          use a different email
+        </button>
+      </p>
+    </form>
   );
 }

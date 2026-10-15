@@ -1,13 +1,14 @@
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { eq } from 'drizzle-orm';
 import { OAuth2Client } from 'google-auth-library';
 import { db } from '../db/index.js';
-import { users } from '../db/schema.js';
+import { signupCodes, users } from '../db/schema.js';
 import { env } from '../lib/env.js';
-import { badRequest, conflict, forbidden, unauthorized } from '../lib/errors.js';
+import { badRequest, conflict, forbidden, HttpError, unauthorized } from '../lib/errors.js';
+import { mailEnabled, sendMail } from '../lib/mailer.js';
 import { signToken } from '../lib/jwt.js';
-import type { LoginInput, SignupInput } from '../validation/schemas.js';
+import type { LoginInput, SignupInput, VerifySignupInput } from '../validation/schemas.js';
 
 // Compared against when the email is unknown, so a missing account
 // takes about as long to reject as a wrong password.
@@ -22,10 +23,16 @@ function session(user: Pick<UserRow, 'id' | 'name' | 'role'>) {
   };
 }
 
+/**
+ * Sign-up emails a code, so on a host it needs working email. Locally the code is printed
+ * in the server log instead.
+ */
+const signupUsable = () => mailEnabled || !env.IS_HOSTED;
+
 /** What the sign-in page offers: self sign-up (and for which domains) and Google. */
 export function signInOptions() {
   return {
-    signupDomains: env.SIGNUP_EMAIL_DOMAINS,
+    signupDomains: signupUsable() ? env.SIGNUP_EMAIL_DOMAINS : [],
     googleClientId: env.GOOGLE_CLIENT_ID || null,
   };
 }
@@ -63,10 +70,77 @@ export async function insertUser(input: { name: string; email: string; role: Use
   return created;
 }
 
-/** Self sign-up: allowed domains only, and always as an employee. */
-export async function signup({ name, email, password }: SignupInput) {
-  if (!canSelfSignUp(email)) throw signUpRefusal();
-  const created = await insertUser({ name, email, role: 'employee', passwordHash: await bcrypt.hash(password, 10) });
+const CODE_MINUTES = 10;
+const MAX_CODE_TRIES = 5;
+const RESEND_AFTER_SECONDS = 60;
+
+const hashCode = (email: string, code: string) => createHmac('sha256', env.JWT_SECRET).update(`${email}:${code}`).digest('hex');
+
+/** Emails the sign-up code; swapped out in tests. */
+export const signupCodeMailer = {
+  async send(to: string, name: string, code: string) {
+    // On a laptop the code is also printed, so sign-up works without a mailbox.
+    if (!env.IS_HOSTED) console.log(`[sign-up code] ${to}: ${code}`);
+    await sendMail({
+      to,
+      subject: `${code} is your Task Tracker code`,
+      text: `Hi ${name},\n\nYour code to finish creating your Task Tracker account is ${code}.\nIt works for ${CODE_MINUTES} minutes.\n\nIf you didn't try to sign up, ignore this email.\n`,
+      html: `<p style="font:15px system-ui,sans-serif;margin:0 0 12px">Hi ${name.replace(/[<>&"]/g, '')},</p><p style="font:15px system-ui,sans-serif;margin:0 0 8px">Your code to finish creating your Task Tracker account:</p><p style="font:700 32px/1.2 system-ui,sans-serif;letter-spacing:6px;margin:0 0 12px">${code}</p><p style="font:14px system-ui,sans-serif;color:#465065;margin:0">It works for ${CODE_MINUTES} minutes. If you didn't try to sign up, ignore this email.</p>`,
+    });
+  },
+};
+
+/**
+ * Step 1 of self sign-up (allowed domains only): emails a 6-digit code. Nothing is created
+ * until the code comes back, so nobody can claim an inbox they can't read.
+ */
+export async function startSignup({ name, email, password }: SignupInput) {
+  if (!canSelfSignUp(email) || !signupUsable()) throw signUpRefusal();
+  const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+  if (taken) throw conflict('An account with this email already exists. Sign in instead.');
+
+  const [pending] = await db.select({ sentAt: signupCodes.sentAt }).from(signupCodes).where(eq(signupCodes.email, email)).limit(1);
+  if (pending && Date.now() - pending.sentAt.getTime() < RESEND_AFTER_SECONDS * 1000) {
+    throw new HttpError(429, 'We just sent a code. Wait a minute before asking for another.');
+  }
+
+  const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+  const row = {
+    name,
+    passwordHash: await bcrypt.hash(password, 10),
+    codeHash: hashCode(email, code),
+    attempts: 0,
+    expiresAt: new Date(Date.now() + CODE_MINUTES * 60_000),
+    sentAt: new Date(),
+  };
+  await db.insert(signupCodes).values({ email, ...row }).onConflictDoUpdate({ target: signupCodes.email, set: row });
+
+  try {
+    await signupCodeMailer.send(email, name, code);
+  } catch (err) {
+    console.error('Sign-up code email failed', err);
+    await db.delete(signupCodes).where(eq(signupCodes.email, email));
+    throw new HttpError(502, "We couldn't send the email. Try again in a moment.");
+  }
+  return { email, expiresInMinutes: CODE_MINUTES };
+}
+
+/** Step 2: the right code creates the employee account and signs them in. */
+export async function verifySignup({ email, code }: VerifySignupInput) {
+  const [pending] = await db.select().from(signupCodes).where(eq(signupCodes.email, email)).limit(1);
+  if (!pending || pending.expiresAt.getTime() < Date.now()) throw badRequest('This code has expired. Ask for a new one.');
+  if (pending.attempts >= MAX_CODE_TRIES) throw badRequest('Too many wrong codes. Ask for a new one.');
+
+  const expected = Buffer.from(pending.codeHash, 'hex');
+  const given = Buffer.from(hashCode(email, code), 'hex');
+  if (!timingSafeEqual(expected, given)) {
+    await db.update(signupCodes).set({ attempts: pending.attempts + 1 }).where(eq(signupCodes.email, email));
+    const left = MAX_CODE_TRIES - pending.attempts - 1;
+    throw badRequest(left > 0 ? `That code isn't right. ${left} ${left === 1 ? 'try' : 'tries'} left.` : 'Too many wrong codes. Ask for a new one.');
+  }
+
+  const created = await insertUser({ name: pending.name, email, role: 'employee', passwordHash: pending.passwordHash });
+  await db.delete(signupCodes).where(eq(signupCodes.email, email));
   return session(created);
 }
 

@@ -78,6 +78,13 @@
       "when": 1792054092306,
       "tag": "0010_remove_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792058822305,
+      "tag": "0011_signup_codes",
+      "breakpoints": true
     }
   ]
 }

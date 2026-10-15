@@ -2238,6 +2238,23 @@ textarea {
   font-size: var(--text-md);
   color: var(--ink-2);
 }
+.btn-inline-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--lit-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.code-input {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
 .google-button {
   min-height: 44px;
   display: flex;

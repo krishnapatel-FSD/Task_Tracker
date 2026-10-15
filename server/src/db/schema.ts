@@ -42,6 +42,20 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * A sign-up waiting for its emailed code. The account is only created once the code is
+ * entered, which proves the person owns the inbox. One pending sign-up per email.
+ */
+export const signupCodes = pgTable('signup_codes', {
+  email: varchar('email', { length: 255 }).primaryKey(),
+  name: varchar('name', { length: 100 }).notNull(),
+  passwordHash: text('password_hash').notNull(),
+  codeHash: text('code_hash').notNull(),
+  attempts: smallint('attempts').notNull().default(0),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const projects = pgTable('projects', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull().unique(),

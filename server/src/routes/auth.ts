@@ -2,7 +2,15 @@ import { Router } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { validate } from '../middleware/validate.js';
 import * as authService from '../services/authService.js';
-import { googleLoginSchema, loginSchema, signupSchema, type LoginInput, type SignupInput } from '../validation/schemas.js';
+import {
+  googleLoginSchema,
+  loginSchema,
+  signupSchema,
+  verifySignupSchema,
+  type LoginInput,
+  type SignupInput,
+  type VerifySignupInput,
+} from '../validation/schemas.js';
 
 export const authRouter = Router();
 
@@ -25,8 +33,22 @@ authRouter.post('/login', validate(loginSchema), async (_req, res) => {
   res.json(result);
 });
 
+// Step 1 emails a code; step 2 checks it and creates the account.
 authRouter.post('/signup', signupLimiter, validate(signupSchema), async (_req, res) => {
-  res.status(201).json(await authService.signup(res.locals.body as SignupInput));
+  res.status(202).json(await authService.startSignup(res.locals.body as SignupInput));
+});
+
+// Wrong codes are also capped per pending sign-up (5 tries).
+const verifyLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  limit: 30,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Try again later.' },
+});
+
+authRouter.post('/signup/verify', verifyLimiter, validate(verifySignupSchema), async (_req, res) => {
+  res.status(201).json(await authService.verifySignup(res.locals.body as VerifySignupInput));
 });
 
 authRouter.post('/google', signupLimiter, validate(googleLoginSchema), async (_req, res) => {

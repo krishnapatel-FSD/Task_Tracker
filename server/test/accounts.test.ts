@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { sql } from 'drizzle-orm';
 import { db } from '../src/db/index.js';
-import { googleVerifier } from '../src/services/authService.js';
+import { googleVerifier, signupCodeMailer } from '../src/services/authService.js';
 import { call, login, startServer, stopServer, type Session } from './helpers.js';
 
 let admin: Session;
@@ -18,7 +18,14 @@ before(async () => {
   asha = await login('asha@example.com');
 });
 
+// Codes "emailed" during the tests, by address.
+const codes = new Map<string, string>();
+signupCodeMailer.send = async (to, _name, code) => {
+  codes.set(to, code);
+};
+
 after(async () => {
+  await db.execute(sql`delete from signup_codes where email like ${`%-${stamp}@%`}`);
   await db.execute(sql`delete from notification_preferences where user_id in (select id from users where email like ${`%-${stamp}@%`})`);
   await db.execute(sql`delete from users where email like ${`%-${stamp}@%`}`);
   await stopServer();
@@ -32,28 +39,52 @@ describe('sign-in options', () => {
   });
 });
 
-describe('sign-up', () => {
-  test('a company email gets an employee account and can sign in', async () => {
+describe('sign-up with an emailed code', () => {
+  test('the account exists only after the right code, then signs in', async () => {
     const email = address('newbie');
     const res = await call('POST', '/auth/signup', { body: { name: 'New Person', email: email.toUpperCase(), password: 'longenough' } });
-    assert.equal(res.status, 201, JSON.stringify(res.body));
-    assert.equal(res.body.user.role, 'employee');
-    assert.ok(res.body.token);
-    const again = await call('POST', '/auth/login', { body: { email, password: 'longenough' } });
-    assert.equal(again.status, 200);
+    assert.equal(res.status, 202, JSON.stringify(res.body));
+    assert.equal(res.body.email, email);
+    assert.equal((await call('POST', '/auth/login', { body: { email, password: 'longenough' } })).status, 401);
+
+    const done = await call('POST', '/auth/signup/verify', { body: { email, code: codes.get(email) } });
+    assert.equal(done.status, 201, JSON.stringify(done.body));
+    assert.equal(done.body.user.role, 'employee');
+    assert.equal((await call('POST', '/auth/login', { body: { email, password: 'longenough' } })).status, 200);
+    // The code is used up.
+    assert.equal((await call('POST', '/auth/signup/verify', { body: { email, code: codes.get(email) } })).status, 400);
   });
 
-  test('another domain is refused with a reason', async () => {
-    const res = await call('POST', '/auth/signup', { body: { name: 'Outsider', email: address('x', 'gmail.com'), password: 'longenough' } });
-    assert.equal(res.status, 403);
-    assert.match(res.body.error, /@signup\.test/);
+  test('wrong codes count down, then the code stops working', async () => {
+    const email = address('guesser');
+    await call('POST', '/auth/signup', { body: { name: 'Guesser', email, password: 'longenough' } });
+    const right = codes.get(email)!;
+    const wrong = right === '000000' ? '111111' : '000000';
+    const first = await call('POST', '/auth/signup/verify', { body: { email, code: wrong } });
+    assert.equal(first.status, 400);
+    assert.match(first.body.error, /4 tries left/);
+    for (let i = 0; i < 4; i++) await call('POST', '/auth/signup/verify', { body: { email, code: wrong } });
+    const locked = await call('POST', '/auth/signup/verify', { body: { email, code: right } });
+    assert.equal(locked.status, 400);
+    assert.match(locked.body.error, /new one/);
   });
 
-  test('a taken email is 409 and a short password is 400', async () => {
-    const email = address('twice');
-    assert.equal((await call('POST', '/auth/signup', { body: { name: 'A', email, password: 'longenough' } })).status, 201);
-    assert.equal((await call('POST', '/auth/signup', { body: { name: 'B', email, password: 'longenough' } })).status, 409);
+  test('a second code needs a minute; an existing account and another domain are refused', async () => {
+    const email = address('again');
+    assert.equal((await call('POST', '/auth/signup', { body: { name: 'A', email, password: 'longenough' } })).status, 202);
+    assert.equal((await call('POST', '/auth/signup', { body: { name: 'A', email, password: 'longenough' } })).status, 429);
+    assert.equal((await call('POST', '/auth/signup', { body: { name: 'B', email: 'asha@example.com', password: 'longenough' } })).status, 403);
+    const outside = await call('POST', '/auth/signup', { body: { name: 'Outsider', email: address('x', 'gmail.com'), password: 'longenough' } });
+    assert.equal(outside.status, 403);
+    assert.match(outside.body.error, /@signup\.test/);
     assert.equal((await call('POST', '/auth/signup', { body: { name: 'C', email: address('short'), password: 'short' } })).status, 400);
+    assert.equal((await call('POST', '/auth/signup/verify', { body: { email, code: '12ab' } })).status, 400);
+  });
+
+  test('an email that already has an account is 409', async () => {
+    const email = address('taken');
+    await call('POST', '/users', { token: admin.token, body: { name: 'Taken', email, role: 'employee', password: 'temporary1' } });
+    assert.equal((await call('POST', '/auth/signup', { body: { name: 'Again', email, password: 'longenough' } })).status, 409);
   });
 });
 

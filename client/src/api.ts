@@ -100,8 +100,12 @@ export const api = {
 
   signInOptions: () => request<SignInOptions>('/auth/options'),
 
+  /** Emails a 6-digit code; the account is created by verifySignup. */
   signup: (name: string, email: string, password: string) =>
-    request<Session>('/auth/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+    request<{ email: string; expiresInMinutes: number }>('/auth/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+
+  verifySignup: (email: string, code: string) =>
+    request<Session>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }),
 
   googleLogin: (credential: string) =>
     request<Session>('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
