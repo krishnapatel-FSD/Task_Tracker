@@ -1,4 +1,5 @@
 import type {
+  Account,
   Attachment,
   ChecklistItem,
   Handoff,
@@ -14,6 +15,7 @@ import type {
   ProjectBoardRow,
   ProgressReport,
   ProjectRef,
+  Role,
   Status,
   Task,
   TaskFilterValues,
@@ -21,6 +23,7 @@ import type {
   TaskInput,
   TaskNote,
   TaskTimeline,
+  SignInOptions,
   User,
 } from './types';
 
@@ -94,6 +97,22 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const api = {
   login: (email: string, password: string) =>
     request<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+
+  signInOptions: () => request<SignInOptions>('/auth/options'),
+
+  signup: (name: string, email: string, password: string) =>
+    request<Session>('/auth/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
+
+  googleLogin: (credential: string) =>
+    request<Session>('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
+
+  listAccounts: () => request<Account[]>('/users/accounts'),
+
+  createAccount: (input: { name: string; email: string; role: Role; password: string }) =>
+    request<Account>('/users', { method: 'POST', body: JSON.stringify(input) }),
+
+  updateAccount: (id: string, changes: { name?: string; role?: Role; password?: string }) =>
+    request<Account>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
 
   listEmployees: () => request<Employee[]>('/users'),
 

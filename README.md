@@ -60,6 +60,15 @@ All use the password `password123`.
 | `SMTP_URL`, `MAIL_FROM` | empty | Email transport; empty turns email off |
 | `JOBS_ENABLED` | `true` | Run scheduled jobs in this process |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | `uploads`, `10` | Attachment storage folder and size limit |
+| `SIGNUP_EMAIL_DOMAINS` | empty | Domains that may create their own account (sign-up page and Google), e.g. `decacorpus.com`; empty closes sign-up |
+| `GOOGLE_CLIENT_ID` | empty | Google OAuth client ID; empty hides "Continue with Google" |
+
+## Accounts
+
+- **Admin adds people:** People page (`/admin/people`): add someone with a starting password, switch employee/admin, reset a password.
+- **Sign-up:** "Create an account" on the sign-in page, only for emails in `SIGNUP_EMAIL_DOMAINS`. New accounts are employees.
+- **Google:** a known email signs straight in; a new one gets an employee account if its domain is allowed. Set up in Google Cloud Console → APIs & Services → Credentials → *Create OAuth client ID* → *Web application*, add the web app's address (e.g. `https://your-app.vercel.app` and `http://localhost:5173`) under **Authorized JavaScript origins**, and put the client ID in `GOOGLE_CLIENT_ID` on the API. No redirect URI or client secret is needed, and the web app reads the ID from the API, so Vercel needs no change.
+- Accounts live in the app's own `users` table, not in Supabase Authentication.
 
 ## Running on Supabase
 
@@ -124,7 +133,11 @@ All under `/api`; errors are `{ "error": "message" }`. Archived (deleted) tasks 
 | Method & path | Access | Purpose |
 | --- | --- | --- |
 | `POST /auth/login` | Public | `{ email, password }` → `{ token, user }` |
-| `GET /users` | Admin | Employees `{ id, name }` |
+| `GET /auth/options` | Public | `{ signupDomains, googleClientId }` for the sign-in page |
+| `POST /auth/signup` | Public | `{ name, email, password }` → `{ token, user }`; allowed domains only |
+| `POST /auth/google` | Public | `{ credential }` (Google ID token) → `{ token, user }` |
+| `GET /users` | Logged in | Employees `{ id, name }` |
+| `GET /users/accounts`, `POST /users`, `PATCH /users/:id` | Admin | People page: list with emails; add; change name, role or password |
 | `GET /projects` | Logged in | Active projects; `?all=true` (admin) adds archived ones and task counts |
 | `POST /projects`, `PATCH /projects/:id` | Admin | Create; rename, describe, archive or restore |
 | `GET /tasks?status=&assigneeId=&projectId=` | Logged in | Admin: all tasks; employee: own tasks only |

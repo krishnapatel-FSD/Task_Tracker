@@ -55,4 +55,14 @@ export const env = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? '',
   SUPABASE_BUCKET: process.env.SUPABASE_BUCKET ?? 'attachments',
   MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB ?? 10),
+  /**
+   * Email domains that may create their own account (sign-up page and Google), comma-separated,
+   * e.g. "decacorpus.com". Empty turns self sign-up off; the admin can still add people.
+   */
+  SIGNUP_EMAIL_DOMAINS: (process.env.SIGNUP_EMAIL_DOMAINS ?? '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
+    .filter(Boolean),
+  /** OAuth client ID from Google Cloud (Web application). Empty hides "Continue with Google". */
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? '',
 };

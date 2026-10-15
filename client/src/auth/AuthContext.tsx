@@ -6,6 +6,8 @@ import type { Role, User } from '../types';
 interface AuthContextValue {
   user: User | null;
   login: (email: string, password: string) => Promise<User>;
+  /** Starts a session from sign-up or Google sign-in. */
+  startSession: (session: Session) => User;
   logout: () => void;
 }
 
@@ -36,7 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return next.user;
   }, []);
 
-  const value = useMemo(() => ({ user: session?.user ?? null, login, logout }), [session, login, logout]);
+  const startSession = useCallback((next: Session) => {
+    saveSession(next);
+    setSession(next);
+    return next.user;
+  }, []);
+
+  const value = useMemo(() => ({ user: session?.user ?? null, login, startSession, logout }), [session, login, startSession, logout]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

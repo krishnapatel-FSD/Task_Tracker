@@ -8,6 +8,8 @@ import { TeamProgressPage } from './progress/TeamProgressPage';
 import { AdminProjects } from './pages/AdminProjects';
 import { Login } from './pages/Login';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { PeoplePage } from './pages/PeoplePage';
+import { Signup } from './pages/Signup';
 import { ProjectPage } from './projects/ProjectPage';
 import { ProjectsHome } from './projects/ProjectsHome';
 import { UnreadContext, useUnreadCountPoller } from './notifications';
@@ -30,6 +32,7 @@ export function App() {
       <Shell>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
           <Route
             path="/projects"
             element={
@@ -59,6 +62,14 @@ export function App() {
             element={
               <ProtectedRoute role="admin">
                 <TeamProgressPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/people"
+            element={
+              <ProtectedRoute role="admin">
+                <PeoplePage />
               </ProtectedRoute>
             }
           />

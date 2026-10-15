@@ -1,4 +1,4 @@
-import { Bell, CalendarBlank, ChartBar, Gauge, CheckSquareOffset, FolderSimple, GearSix, ListChecks, UsersThree, SignOut } from '@phosphor-icons/react';
+import { Bell, CalendarBlank, ChartBar, Gauge, CheckSquareOffset, FolderSimple, GearSix, ListChecks, UsersFour, UsersThree, SignOut } from '@phosphor-icons/react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -40,6 +40,7 @@ export function Shell({ children }: { children: ReactNode }) {
         { to: '/calendar', label: 'Calendar', icon: <CalendarBlank size={20} weight="bold" /> },
         { to: '/admin/reports', label: 'Reports', icon: <ChartBar size={20} weight="bold" /> },
         { to: '/admin/progress', label: 'Team progress', short: 'Progress', phoneMenu: true, icon: <Gauge size={20} weight="bold" /> },
+        { to: '/admin/people', label: 'People', phoneMenu: true, icon: <UsersFour size={20} weight="bold" /> },
         { to: '/admin/projects', label: 'Manage projects', short: 'Manage', phoneMenu: true, icon: <GearSix size={20} weight="bold" /> },
         { to: '/notifications', label: 'Notifications', icon: <Bell size={20} weight="bold" />, badge: count },
       ]

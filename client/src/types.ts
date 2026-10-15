@@ -8,6 +8,20 @@ export interface User {
   role: Role;
 }
 
+/** A row on the admin's People page. */
+export interface Account extends User {
+  email: string;
+  createdAt: string;
+  openTasks: number;
+}
+
+/** What the sign-in page offers. */
+export interface SignInOptions {
+  /** Email domains that may sign up; empty means sign-up is closed. */
+  signupDomains: string[];
+  googleClientId: string | null;
+}
+
 export interface Employee {
   id: string;
   name: string;

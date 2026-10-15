@@ -17,6 +17,28 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+const password = z
+  .string()
+  .min(8, 'Use at least 8 characters for the password')
+  .max(72, 'Keep the password to 72 characters');
+const personName = z.string().trim().min(1, 'Enter a name').max(100, 'Keep the name to 100 characters');
+const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(255);
+const role = z.enum(['admin', 'employee'], 'Role must be admin or employee');
+
+export const signupSchema = z.object({ name: personName, email, password });
+export type SignupInput = z.infer<typeof signupSchema>;
+
+export const googleLoginSchema = z.object({ credential: z.string().min(20, 'Missing Google sign-in token') });
+
+export const createUserSchema = z.object({ name: personName, email, role, password });
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+
+export const updateUserSchema = z
+  .object({ name: personName, role, password })
+  .partial()
+  .refine((v) => Object.keys(v).length > 0, 'Nothing to change');
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+
 const taskFields = {
   title: z.string().trim().min(1, 'Title is required').max(150, 'Title must be at most 150 characters'),
   description: z.string().trim().min(1, 'Description is required'),
