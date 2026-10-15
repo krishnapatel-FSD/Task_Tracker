@@ -73,7 +73,7 @@ The API keeps its own sign-in and permission checks; Supabase provides the Postg
 4. `npm run db:migrate`, then either `npm run db:seed` (sample data) or copy your local data in.
 5. To move existing uploads: `npm run files:to-supabase --prefix server` (safe to rerun).
 
-Tests always run against the local Docker database.
+Tests always run against the local Docker database: `TEST_DATABASE_URL` in `server/.env` (loaded by `server/test/setup-env.ts`), with local file storage, whatever `DATABASE_URL` and `STORAGE_DRIVER` say.
 
 ## Scheduled jobs
 

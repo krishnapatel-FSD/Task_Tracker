@@ -13,7 +13,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:reset": "tsx src/db/seed.ts --reset",
     "report:weekly": "tsx scripts/run-weekly-report.ts",
-    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
+    "test": "tsx --import ./test/setup-env.ts --test --test-concurrency=1 test/*.test.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
