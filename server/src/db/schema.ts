@@ -37,23 +37,17 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 100 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
-  passwordHash: text('password_hash').notNull(),
+  /** The person's login in Supabase Auth (auth.users.id). Passwords, codes and 2FA live there. */
+  authId: uuid('auth_id').unique(),
+  /** Only kept to move older accounts into Supabase Auth with their existing password. */
+  passwordHash: text('password_hash'),
   role: roleEnum('role').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-/**
- * A sign-up waiting for its emailed code. The account is only created once the code is
- * entered, which proves the person owns the inbox. One pending sign-up per email.
- */
-export const signupCodes = pgTable('signup_codes', {
-  email: varchar('email', { length: 255 }).primaryKey(),
-  name: varchar('name', { length: 100 }).notNull(),
-  passwordHash: text('password_hash').notNull(),
-  codeHash: text('code_hash').notNull(),
-  attempts: smallint('attempts').notNull().default(0),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+/** Email domains that may create their own account; read by the Supabase sign-up hook. */
+export const signupDomains = pgTable('signup_domains', {
+  domain: varchar('domain', { length: 255 }).primaryKey(),
 });
 
 export const projects = pgTable('projects', {

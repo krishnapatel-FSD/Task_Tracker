@@ -17,8 +17,8 @@ Specs live in [`docs/`](docs/): PRD, TRD, backend schema, user flow, and the [Ph
 ```bash
 npm install
 npm run install:all
-cp server/.env.example server/.env     # then set JWT_SECRET to a long random string
-cp client/.env.example client/.env
+cp server/.env.example server/.env     # then fill in the Supabase values
+cp client/.env.example client/.env     # Supabase address and public key, for sign-in
 npm run db:up        # Postgres on localhost:5440, Mailpit on localhost:8025
 npm run db:migrate   # create tables
 npm run db:seed      # admin, 5 employees, 3 projects, 8 weeks of sample history
@@ -29,7 +29,7 @@ All email goes to Mailpit locally: open http://localhost:8025 to read it. Leave 
 
 ## Seeded accounts
 
-All use the password `password123`.
+Each moves into Supabase Auth with the password `password123` (`npm run logins:to-supabase --prefix server`) and sets up two-step sign-in on first use. Change these passwords before sharing the app.
 
 | Email | Role |
 | --- | --- |
@@ -54,22 +54,24 @@ All use the password `password123`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL`, `JWT_SECRET`, `PORT` | | Required database and auth settings |
+| `DATABASE_URL`, `PORT` | | Required database settings |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | | Sign-in: the API checks Supabase's access tokens and manages logins for the People page |
 | `CLIENT_ORIGIN`, `APP_URL` | `http://localhost:5173` | CORS origin; base URL for links in emails |
 | `REPORT_TZ` | `Asia/Kolkata` | Time zone for "today", reminders and report weeks |
 | `SMTP_URL`, `MAIL_FROM` | empty | Email transport; empty turns email off |
-| `BREVO_API_KEY` | empty | Send all email through Brevo's API instead of SMTP (Railway blocks SMTP on smaller plans). `MAIL_FROM` must be a sender verified in Brevo |
 | `JOBS_ENABLED` | `true` | Run scheduled jobs in this process |
 | `UPLOAD_DIR`, `MAX_UPLOAD_MB` | `uploads`, `10` | Attachment storage folder and size limit |
-| `SIGNUP_EMAIL_DOMAINS` | empty | Domains that may create their own account (sign-up page and Google), e.g. `decacorpus.com`; empty closes sign-up |
-| `GOOGLE_CLIENT_ID` | empty | Google OAuth client ID; empty hides "Continue with Google" |
+| `SIGNUP_EMAIL_DOMAINS` | empty | Domains that may create their own account, e.g. `decacorpus.com`; empty closes sign-up |
 
-## Accounts
+## Accounts and sign-in (Supabase Auth)
 
-- **Admin adds people:** People page (`/admin/people`): add someone with a starting password, switch employee/admin, reset a password.
-- **Sign-up:** "Create an account" on the sign-in page, only for emails in `SIGNUP_EMAIL_DOMAINS`. A 6-digit code is emailed (valid 10 minutes, 5 tries) and the account is only created once it's entered, so nobody can claim an inbox they can't read. New accounts are employees. Sign-up stays closed until email works (`BREVO_API_KEY` or `SMTP_URL`); for local development `SIGNUP_CODES_IN_LOG=true` prints codes in the server log instead. The People page has an **Email check** that shows how mail goes out and sends a test message.
-- **Google:** a known email signs straight in; a new one gets an employee account if its domain is allowed. Set up in Google Cloud Console → APIs & Services → Credentials → *Create OAuth client ID* → *Web application*, add the web app's address (e.g. `https://your-app.vercel.app` and `http://localhost:5173`) under **Authorized JavaScript origins**, and put the client ID in `GOOGLE_CLIENT_ID` on the API. No redirect URI or client secret is needed, and the web app reads the ID from the API, so Vercel needs no change.
-- Accounts live in the app's own `users` table, not in Supabase Authentication.
+Sign-in runs on **Supabase Auth**: passwords, the emailed sign-up code and two-step sign-in. The app's own `users` table keeps each person's name and role and links to their login through `auth_id`.
+
+- **Sign-up:** "Create an account", only for emails in `SIGNUP_EMAIL_DOMAINS`. Supabase emails a 6-digit code; entering it confirms the address. The account is made as an employee on first sign-in. A Supabase *Before User Created* hook (`public.hook_before_user_created`, reading `signup_domains`) refuses other domains before any email goes out.
+- **Two-step sign-in (required for everyone):** after the password, an authenticator-app code (Google or Microsoft Authenticator). The first sign-in shows a QR code to set it up. The API refuses any session that hasn't entered its code (`aal2`).
+- **Admin, People page** (`/admin/people`): add someone with a starting password (a confirmed login, no email needed), switch employee/admin, reset a password, reset two-step sign-in for a lost phone.
+- **Moving existing accounts:** `npm run logins:to-supabase --prefix server` creates a confirmed Supabase login for every unlinked account, keeping its current password. Safe to rerun.
+- **Supabase settings:** Email provider with *Confirm email* on and 6-digit codes; the *Confirm signup* template shows `{{ .Token }}`; custom SMTP (a Gmail app password works, no domain needed); TOTP MFA enabled; *Before User Created* hook pointed at `public.hook_before_user_created`.
 
 ## Running on Supabase
 
@@ -129,18 +131,14 @@ client/src/
 
 ## API
 
-All under `/api`; errors are `{ "error": "message" }`. Archived (deleted) tasks are 404 everywhere except restore.
+All under `/api`; errors are `{ "error": "message" }`. Every route except `/auth/options` needs a Supabase access token (`Authorization: Bearer …`) whose two-step sign-in is done. Archived (deleted) tasks are 404 everywhere except restore.
 
 | Method & path | Access | Purpose |
 | --- | --- | --- |
-| `POST /auth/login` | Public | `{ email, password }` → `{ token, user }` |
-| `GET /auth/options` | Public | `{ signupDomains, googleClientId }` for the sign-in page |
-| `POST /auth/signup` | Public | `{ name, email, password }` → 202, emails a 6-digit code; allowed domains only |
-| `POST /auth/signup/verify` | Public | `{ email, code }` → `{ token, user }`; creates the account |
-| `POST /auth/google` | Public | `{ credential }` (Google ID token) → `{ token, user }` |
+| `GET /auth/options` | Public | `{ signupDomains }` for the sign-in page |
+| `GET /auth/me` | Supabase login with 2FA | The app account for this login; made on first sign-in |
 | `GET /users` | Logged in | Employees `{ id, name }` |
-| `GET /mail/status`, `POST /mail/test` | Admin | How email goes out; send a test `{ to }` and see Brevo's answer |
-| `GET /users/accounts`, `POST /users`, `PATCH /users/:id` | Admin | People page: list with emails; add; change name, role or password |
+| `GET /users/accounts`, `POST /users`, `PATCH /users/:id`, `POST /users/:id/reset-2fa` | Admin | People page: list with emails; add; change name, role or password; reset two-step sign-in |
 | `GET /projects` | Logged in | Active projects; `?all=true` (admin) adds archived ones and task counts |
 | `POST /projects`, `PATCH /projects/:id` | Admin | Create; rename, describe, archive or restore |
 | `GET /tasks?status=&assigneeId=&projectId=` | Logged in | Admin: all tasks; employee: own tasks only |

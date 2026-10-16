@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { EmptyState, ErrorBanner } from '../components/PageStates';
-import type { Account, MailStatus, Role } from '../types';
+import type { Account, Role } from '../types';
 
 /** Admin only: everyone with an account, adding people, roles and password resets. */
 export function PeoplePage() {
@@ -66,7 +66,6 @@ export function PeoplePage() {
         </ul>
       )}
 
-      <EmailCheck />
     </main>
   );
 }
@@ -122,6 +121,27 @@ function PersonRow({ account, onChanged }: { account: Account; onChanged: () => 
       <div className="project-actions">
         <button type="button" className="btn btn-quiet btn-small" aria-expanded={resetting} onClick={() => setResetting((v) => !v)} disabled={busy}>
           Reset password
+        </button>
+        <button
+          type="button"
+          className="btn btn-quiet btn-small"
+          disabled={busy}
+          onClick={async () => {
+            if (!window.confirm(`Reset two-step sign-in for ${account.name}? They'll scan a new QR code at their next sign-in.`)) return;
+            setBusy(true);
+            setError(null);
+            setNotice(null);
+            try {
+              const { removed } = await api.resetTwoFactor(account.id);
+              setNotice(removed ? 'Two-step sign-in reset. They set it up again at next sign-in.' : "They hadn't set up two-step sign-in yet.");
+            } catch (err) {
+              setError(err instanceof ApiError ? err.message : "We couldn't reset two-step sign-in.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Reset 2FA
         </button>
         {!isMe && (
           <button type="button" className="btn btn-link" onClick={() => change({ role: otherRole }, `Now ${otherRole === 'admin' ? 'an admin' : 'an employee'}.`)} disabled={busy}>
@@ -220,64 +240,5 @@ function AddPersonForm({ onCancel, onSaved }: { onCancel: () => void; onSaved: (
         </button>
       </div>
     </form>
-  );
-}
-
-const TRANSPORT_LABEL: Record<MailStatus['transport'], string> = {
-  brevo: 'Sending through Brevo',
-  smtp: 'Sending through SMTP',
-  off: 'Email is off: sign-up codes and email notifications cannot be sent',
-};
-
-/** Shows how email goes out and sends a test message, so a missing code can be traced. */
-function EmailCheck() {
-  const [status, setStatus] = useState<MailStatus | null>(null);
-  const [to, setTo] = useState('');
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    api.mailStatus().then(setStatus).catch(() => setStatus(null));
-  }, []);
-
-  async function send(e: FormEvent) {
-    e.preventDefault();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to.trim())) return setResult({ ok: false, text: 'Enter a valid email address.' });
-    setBusy(true);
-    setResult(null);
-    try {
-      const r = await api.sendTestEmail(to.trim());
-      setResult(
-        r.outcome === 'sent'
-          ? { ok: true, text: `Accepted for delivery. If it doesn't arrive within a few minutes, check spam, then the email provider's logs (message ${r.id || 'id not given'}).` }
-          : { ok: false, text: `Not sent: ${r.reason}.` },
-      );
-    } catch (err) {
-      setResult({ ok: false, text: err instanceof ApiError ? err.message : "We couldn't reach the server." });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section className="email-check" aria-labelledby="email-check-heading">
-      <h2 id="email-check-heading" className="tt-group-title">
-        Email check
-      </h2>
-      <p className={`email-check-status${status?.transport === 'off' ? ' is-off' : ''}`}>
-        {status ? `${TRANSPORT_LABEL[status.transport]}${status.transport !== 'off' ? `, from ${status.from}` : ''}.` : 'Checking…'}
-      </p>
-      <form className="email-check-form" onSubmit={send} noValidate>
-        <input type="email" value={to} placeholder="you@company.com" aria-label="Send a test email to" onChange={(e) => setTo(e.target.value)} />
-        <button type="submit" className="btn btn-quiet" disabled={busy}>
-          {busy ? 'Sending…' : 'Send test email'}
-        </button>
-      </form>
-      {result && (
-        <p className={result.ok ? 'person-notice' : 'field-error'} role="status">
-          {result.text}
-        </p>
-      )}
-    </section>
   );
 }

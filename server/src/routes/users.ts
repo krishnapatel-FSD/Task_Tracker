@@ -28,6 +28,12 @@ usersRouter.post('/', authenticate, requireRole('admin'), validate(createUserSch
   res.status(201).json(await userService.createAccount(res.locals.body as CreateUserInput));
 });
 
+usersRouter.post('/:id/reset-2fa', authenticate, requireRole('admin'), async (req, res) => {
+  const id = req.params.id as string;
+  if (!z.uuid().safeParse(id).success) throw notFound('Person not found');
+  res.json(await userService.resetTwoFactor(id));
+});
+
 usersRouter.patch('/:id', authenticate, requireRole('admin'), validate(updateUserSchema), async (req, res) => {
   const id = req.params.id as string;
   if (!z.uuid().safeParse(id).success) throw notFound('Person not found');

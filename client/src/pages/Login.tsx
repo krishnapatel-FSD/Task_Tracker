@@ -1,16 +1,17 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { api, ApiError } from '../api';
+import { Link, Navigate } from 'react-router-dom';
+import { api } from '../api';
 import { homePathFor, useAuth } from '../auth/AuthContext';
-import { GoogleButton } from '../auth/GoogleButton';
 import { Logo } from '../components/Shell';
+import { supabase } from '../supabase';
 import type { SignInOptions } from '../types';
+import { VerifyEmailCode } from './Signup';
 
-const UNREACHABLE = "We couldn't reach the server. Try again in a moment.";
+export const UNREACHABLE = "We couldn't reach the server. Try again in a moment.";
 
 let optionsLoad: Promise<SignInOptions> | null = null;
 
-/** Sign-up domains and Google, from the server. Null while loading or if it can't be reached. */
+/** Which email domains may sign up, from the server. Null while loading or if it can't be reached. */
 export function useSignInOptions() {
   const [options, setOptions] = useState<SignInOptions | null>(null);
   useEffect(() => {
@@ -23,7 +24,7 @@ export function useSignInOptions() {
   return options;
 }
 
-/** The dark band with the pitch, beside the sign-in or sign-up form. */
+/** The dark band with the pitch, beside the sign-in, sign-up and 2FA forms. */
 export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="login">
@@ -43,42 +44,17 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   );
 }
 
-/** "Continue with Google" plus an "or" rule, when the server has Google set up. */
-export function GoogleSection({ options, onError, text }: { options: SignInOptions | null; onError: (message: string | null) => void; text?: 'continue_with' | 'signup_with' }) {
-  const { startSession } = useAuth();
-  const navigate = useNavigate();
-  if (!options?.googleClientId) return null;
-
-  async function handleCredential(credential: string) {
-    onError(null);
-    try {
-      const user = startSession(await api.googleLogin(credential));
-      navigate(homePathFor(user.role), { replace: true });
-    } catch (err) {
-      onError(err instanceof ApiError ? err.message : UNREACHABLE);
-    }
-  }
-
-  return (
-    <>
-      <GoogleButton clientId={options.googleClientId} onCredential={handleCredential} text={text} />
-      <p className="login-or">
-        <span>or</span>
-      </p>
-    </>
-  );
-}
-
 export function Login() {
-  const { user, login } = useAuth();
-  const navigate = useNavigate();
+  const { stage, user, notice } = useAuth();
   const options = useSignInOptions();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Signed up but never entered the emailed code: finish that first.
+  const [unconfirmed, setUnconfirmed] = useState(false);
 
-  if (user) return <Navigate to={homePathFor(user.role)} replace />;
+  if (stage === 'ready' && user) return <Navigate to={homePathFor(user.role)} replace />;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -88,13 +64,29 @@ export function Login() {
     }
     setSubmitting(true);
     setError(null);
-    try {
-      const loggedIn = await login(email.trim(), password);
-      navigate(homePathFor(loggedIn.role), { replace: true });
-    } catch (err) {
-      setError(err instanceof ApiError && err.status === 401 ? 'That email and password combination is not right.' : UNREACHABLE);
-      setSubmitting(false);
+    const { error: failed } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setSubmitting(false);
+    if (!failed) return; // AuthProvider moves on to the authenticator step.
+    if (failed.code === 'email_not_confirmed') {
+      await supabase.auth.resend({ type: 'signup', email: email.trim() }).catch(() => undefined);
+      setUnconfirmed(true);
+    } else if (failed.code === 'invalid_credentials') {
+      setError('That email and password combination is not right.');
+    } else {
+      setError(failed.message || UNREACHABLE);
     }
+  }
+
+  if (unconfirmed) {
+    return (
+      <AuthLayout>
+        <VerifyEmailCode
+          email={email.trim()}
+          intro="Your email isn't confirmed yet. We've sent you a new code."
+          onBack={() => setUnconfirmed(false)}
+        />
+      </AuthLayout>
+    );
   }
 
   const canSignUp = Boolean(options?.signupDomains.length);
@@ -104,7 +96,11 @@ export function Login() {
       <form className="login-form" onSubmit={handleSubmit} noValidate>
         <h1>Sign in</h1>
 
-        <GoogleSection options={options} onError={setError} />
+        {notice && !error && (
+          <p className="banner banner-error" role="alert">
+            {notice}
+          </p>
+        )}
 
         <label className="field">
           <span className="field-label">Work email</span>
@@ -138,6 +134,8 @@ export function Login() {
         <button type="submit" className="btn btn-primary btn-block" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
+
+        <p className="login-note">After your password you'll enter a code from your authenticator app.</p>
 
         {canSignUp ? (
           <p className="login-note">

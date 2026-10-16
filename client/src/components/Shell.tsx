@@ -86,7 +86,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="user-name">{user.name}</span>
             {user.name !== (isAdmin ? 'Admin' : 'Employee') && <span className="user-role">{isAdmin ? 'Admin' : 'Employee'}</span>}
           </span>
-          <button type="button" className="icon-button" onClick={logout} aria-label="Log out" title="Log out">
+          <button type="button" className="icon-button" onClick={() => logout()} aria-label="Log out" title="Log out">
             <SignOut size={18} weight="bold" aria-hidden="true" />
           </button>
         </div>
@@ -99,7 +99,7 @@ export function Shell({ children }: { children: ReactNode }) {
           role={isAdmin ? 'Admin' : 'Employee'}
           initials={initials}
           links={items.filter((i) => i.phoneMenu)}
-          onLogout={logout}
+          onLogout={() => logout()}
         />
       </header>
 

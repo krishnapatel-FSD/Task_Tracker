@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { homePathFor, useAuth } from './auth/AuthContext';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import { TwoFactorScreen } from './auth/TwoFactor';
 import { Shell } from './components/Shell';
 import { CalendarPage } from './calendar/CalendarPage';
 import { TeamProgressPage } from './progress/TeamProgressPage';
@@ -24,8 +25,13 @@ function HomeRedirect() {
 }
 
 export function App() {
-  const { user } = useAuth();
+  const { stage, user } = useAuth();
   const unread = useUnreadCountPoller(Boolean(user));
+
+  // Restoring the session: show nothing rather than bouncing a deep link to the sign-in page.
+  if (stage === 'loading') return <div className="app-loading" aria-busy="true" />;
+  // Password accepted; the authenticator step comes before any page.
+  if (stage === 'enroll' || stage === 'challenge') return <TwoFactorScreen />;
 
   return (
     <UnreadContext.Provider value={unread}>

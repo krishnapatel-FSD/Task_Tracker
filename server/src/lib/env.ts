@@ -29,7 +29,6 @@ export const env = {
   DATABASE_SSL: databaseSsl(),
   /** Optional path to the database's CA certificate (Supabase: Settings > Database > SSL). Verifies the server when set. */
   DATABASE_SSL_CA: process.env.DATABASE_SSL_CA ?? '',
-  JWT_SECRET: required('JWT_SECRET'),
   PORT: Number(process.env.PORT ?? 4000),
   /** Web app addresses allowed to call the API, comma-separated (production, previews). */
   CLIENT_ORIGINS: CLIENT_ORIGINS,
@@ -45,13 +44,6 @@ export const env = {
   /** Unset disables email: notifications stay in-app and sends are logged instead. */
   SMTP_URL: process.env.SMTP_URL ?? '',
   MAIL_FROM: process.env.MAIL_FROM ?? 'Task Tracker <no-reply@tasktracker.local>',
-  /** Brevo API key: sends all email over HTTPS instead of SMTP (which Railway blocks on smaller plans). */
-  BREVO_API_KEY: process.env.BREVO_API_KEY ?? '',
-  /**
-   * Local development only: print sign-up codes in the server log, so sign-up works without
-   * email. Never set this on a host: without real email, sign-up there stays closed.
-   */
-  SIGNUP_CODES_IN_LOG: process.env.SIGNUP_CODES_IN_LOG === 'true',
   /** Scheduled jobs run in the server process. Off for tests and extra API-only instances. */
   JOBS_ENABLED: (process.env.JOBS_ENABLED ?? 'true') === 'true',
   UPLOAD_DIR: path.resolve(process.env.UPLOAD_DIR ?? 'uploads'),
@@ -63,13 +55,11 @@ export const env = {
   SUPABASE_BUCKET: process.env.SUPABASE_BUCKET ?? 'attachments',
   MAX_UPLOAD_MB: Number(process.env.MAX_UPLOAD_MB ?? 10),
   /**
-   * Email domains that may create their own account (sign-up page and Google), comma-separated,
+   * Email domains that may create their own account (sign-up page), comma-separated,
    * e.g. "decacorpus.com". Empty turns self sign-up off; the admin can still add people.
    */
   SIGNUP_EMAIL_DOMAINS: (process.env.SIGNUP_EMAIL_DOMAINS ?? '')
     .split(',')
     .map((d) => d.trim().toLowerCase().replace(/^@/, ''))
     .filter(Boolean),
-  /** OAuth client ID from Google Cloud (Web application). Empty hides "Continue with Google". */
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? '',
 };

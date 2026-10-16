@@ -1,15 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import type { Session } from '../api';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { api, ApiError } from '../api';
+import { Link, Navigate } from 'react-router-dom';
 import { homePathFor, useAuth } from '../auth/AuthContext';
-import { AuthLayout, GoogleSection, useSignInOptions } from './Login';
+import { supabase } from '../supabase';
+import { AuthLayout, UNREACHABLE, useSignInOptions } from './Login';
 
 type Field = 'name' | 'email' | 'password';
 
 export function Signup() {
-  const { user, startSession } = useAuth();
-  const navigate = useNavigate();
+  const { stage, user } = useAuth();
   const options = useSignInOptions();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -18,9 +16,9 @@ export function Signup() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Step 2: the address the code went to.
-  const [sentTo, setSentTo] = useState<{ email: string; minutes: number } | null>(null);
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
-  if (user) return <Navigate to={homePathFor(user.role)} replace />;
+  if (stage === 'ready' && user) return <Navigate to={homePathFor(user.role)} replace />;
 
   const domains = options?.signupDomains ?? [];
   const domainList = domains.map((d) => '@' + d).join(' or ');
@@ -41,23 +39,18 @@ export function Signup() {
     if (!check()) return;
     setSubmitting(true);
     setError(null);
-    try {
-      const sent = await api.signup(name.trim(), email.trim(), password);
-      setSentTo({ email: sent.email, minutes: sent.expiresInMinutes });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "We couldn't reach the server. Try again in a moment.");
-    } finally {
-      setSubmitting(false);
-    }
+    const { error: failed } = await supabase.auth.signUp({ email: email.trim(), password, options: { data: { name: name.trim() } } });
+    setSubmitting(false);
+    if (failed) setError(failed.code === 'weak_password' ? 'Choose a stronger password.' : failed.message || UNREACHABLE);
+    else setSentTo(email.trim());
   }
 
   if (sentTo) {
     return (
       <AuthLayout>
-        <VerifyCode
-          sentTo={sentTo}
-          onResend={() => api.signup(name.trim(), email.trim(), password).then(() => undefined)}
-          onVerified={(session) => navigate(homePathFor(startSession(session).role), { replace: true })}
+        <VerifyEmailCode
+          email={sentTo}
+          intro={`We sent a 6-digit code to ${sentTo}.`}
           onBack={() => {
             setSentTo(null);
             setError(null);
@@ -94,8 +87,6 @@ export function Signup() {
       <form className="login-form" onSubmit={handleSubmit} noValidate>
         <h1>Create an account</h1>
         {domainList && <p className="login-lede">For people with a {domainList} email. We'll email you a code to confirm it's yours.</p>}
-
-        <GoogleSection options={options} onError={setError} text="signup_with" />
 
         <label className="field">
           <span className="field-label">Your name</span>
@@ -137,8 +128,11 @@ export function Signup() {
   );
 }
 
-/** Step 2: the 6-digit code from the email. The account is created when it's right. */
-function VerifyCode({ sentTo, onResend, onVerified, onBack }: { sentTo: { email: string; minutes: number }; onResend: () => Promise<void>; onVerified: (session: Session) => void; onBack: () => void }) {
+/**
+ * The 6-digit code Supabase emails to confirm a new account. Entering it confirms the email
+ * and signs in; AuthProvider then asks for the authenticator setup.
+ */
+export function VerifyEmailCode({ email, intro, onBack }: { email: string; intro: string; onBack: () => void }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -150,32 +144,26 @@ function VerifyCode({ sentTo, onResend, onVerified, onBack }: { sentTo: { email:
     setBusy(true);
     setError(null);
     setNotice(null);
-    try {
-      onVerified(await api.verifySignup(sentTo.email, code));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "We couldn't reach the server. Try again in a moment.");
-      setBusy(false);
-    }
+    const { error: failed } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+    setBusy(false);
+    if (failed) setError(failed.code === 'otp_expired' ? 'That code is wrong or has expired. Check it, or send a new one.' : failed.message || UNREACHABLE);
   }
 
   async function resend() {
     setError(null);
     setNotice(null);
-    try {
-      await onResend();
+    const { error: failed } = await supabase.auth.resend({ type: 'signup', email });
+    if (failed) setError(failed.code === 'over_email_send_rate_limit' ? 'Wait a minute before asking for another code.' : failed.message || UNREACHABLE);
+    else {
       setCode('');
       setNotice('A new code is on its way.');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "We couldn't reach the server. Try again in a moment.");
     }
   }
 
   return (
     <form className="login-form" onSubmit={handleSubmit} noValidate>
       <h1>Check your email</h1>
-      <p className="login-lede">
-        We sent a 6-digit code to <strong>{sentTo.email}</strong>. It works for {sentTo.minutes} minutes.
-      </p>
+      <p className="login-lede">{intro} It works for 10 minutes.</p>
 
       <label className="field">
         <span className="field-label">Code</span>
@@ -196,10 +184,14 @@ function VerifyCode({ sentTo, onResend, onVerified, onBack }: { sentTo: { email:
           {error}
         </p>
       )}
-      {notice && <p className="person-notice" role="status">{notice}</p>}
+      {notice && (
+        <p className="person-notice" role="status">
+          {notice}
+        </p>
+      )}
 
       <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
-        {busy ? 'Checking…' : 'Create account'}
+        {busy ? 'Checking…' : 'Confirm email'}
       </button>
 
       <p className="login-note">
@@ -209,7 +201,7 @@ function VerifyCode({ sentTo, onResend, onVerified, onBack }: { sentTo: { email:
         </button>
         {' · '}
         <button type="button" className="btn-inline-link" onClick={onBack}>
-          use a different email
+          go back
         </button>
       </p>
     </form>

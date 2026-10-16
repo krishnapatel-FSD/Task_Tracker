@@ -1,6 +1,5 @@
 import type {
   Account,
-  MailStatus,
   Attachment,
   ChecklistItem,
   Handoff,
@@ -29,12 +28,6 @@ import type {
 } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
-const SESSION_KEY = 'task-tracker-session';
-
-export interface Session {
-  token: string;
-  user: User;
-}
 
 export class ApiError extends Error {
   constructor(
@@ -45,24 +38,12 @@ export class ApiError extends Error {
   }
 }
 
-// ---- Session storage -------------------------------------------------------
+// ---- Access token ------------------------------------------------------------
 
-export function loadSession(): Session | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveSession(session: Session | null) {
-  try {
-    if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else localStorage.removeItem(SESSION_KEY);
-  } catch {
-    // Storage unavailable (private mode etc.); the session just won't persist.
-  }
+// The Supabase access token, kept current by AuthProvider (Supabase refreshes it on its own).
+let accessToken: string | null = null;
+export function setAccessToken(token: string | null) {
+  accessToken = token;
 }
 
 // Called on any 401 from an authenticated request (expired or invalid token).
@@ -74,7 +55,7 @@ export function setUnauthorizedHandler(handler: () => void) {
 // ---- Fetch wrapper ---------------------------------------------------------
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = loadSession()?.token;
+  const token = accessToken;
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
@@ -96,26 +77,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 // ---- Endpoints -------------------------------------------------------------
 
 export const api = {
-  login: (email: string, password: string) =>
-    request<Session>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  /** The app account for the signed-in Supabase login; made on first sign-in. */
+  me: () => request<User>('/auth/me'),
 
   signInOptions: () => request<SignInOptions>('/auth/options'),
 
-  /** Emails a 6-digit code; the account is created by verifySignup. */
-  signup: (name: string, email: string, password: string) =>
-    request<{ email: string; expiresInMinutes: number }>('/auth/signup', { method: 'POST', body: JSON.stringify({ name, email, password }) }),
-
-  verifySignup: (email: string, code: string) =>
-    request<Session>('/auth/signup/verify', { method: 'POST', body: JSON.stringify({ email, code }) }),
-
-  googleLogin: (credential: string) =>
-    request<Session>('/auth/google', { method: 'POST', body: JSON.stringify({ credential }) }),
-
   listAccounts: () => request<Account[]>('/users/accounts'),
 
-  mailStatus: () => request<MailStatus>('/mail/status'),
-
-  sendTestEmail: (to: string) => request<MailStatus & { outcome: 'sent' | 'skipped'; id?: string; reason?: string }>('/mail/test', { method: 'POST', body: JSON.stringify({ to }) }),
+  /** Lost phone: removes their authenticator; they set up a new one at next sign-in. */
+  resetTwoFactor: (id: string) => request<{ removed: number }>(`/users/${id}/reset-2fa`, { method: 'POST' }),
 
   createAccount: (input: { name: string; email: string; role: Role; password: string }) =>
     request<Account>('/users', { method: 'POST', body: JSON.stringify(input) }),
@@ -250,7 +220,7 @@ export function uploadAttachment(taskId: string, file: File, onProgress: (fracti
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${API_URL}/tasks/${taskId}/attachments`);
-    const token = loadSession()?.token;
+    const token = accessToken;
     if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {
@@ -273,7 +243,7 @@ export function uploadAttachment(taskId: string, file: File, onProgress: (fracti
 
 /** Downloads need the bearer token, so plain links won't work: fetch a blob and save it. */
 export async function downloadAttachment(attachment: Attachment) {
-  const token = loadSession()?.token;
+  const token = accessToken;
   const res = await fetch(`${API_URL}/attachments/${attachment.id}/download`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
@@ -312,7 +282,7 @@ export const reportsApi = {
 
 /** Fetches an authenticated file (CSV, attachment) and saves it under the given name. */
 export async function downloadFile(path: string, fileName: string) {
-  const token = loadSession()?.token;
+  const token = accessToken;
   const res = await fetch(`${API_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   if (!res.ok) {
     if (res.status === 401 && token) onUnauthorized();

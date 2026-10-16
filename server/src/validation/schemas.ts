@@ -12,11 +12,6 @@ const dateString = (label: string) =>
     .regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must be a date (YYYY-MM-DD)`)
     .refine(isRealDate, `${label} must be a valid date`);
 
-export const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email('A valid email is required'),
-  password: z.string().min(1, 'Password is required'),
-});
-
 const password = z
   .string()
   .min(8, 'Use at least 8 characters for the password')
@@ -25,13 +20,6 @@ const personName = z.string().trim().min(1, 'Enter a name').max(100, 'Keep the n
 const email = z.string().trim().toLowerCase().email('Enter a valid email address').max(255);
 const role = z.enum(['admin', 'employee'], 'Role must be admin or employee');
 
-export const signupSchema = z.object({ name: personName, email, password });
-export type SignupInput = z.infer<typeof signupSchema>;
-
-export const verifySignupSchema = z.object({ email, code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code') });
-export type VerifySignupInput = z.infer<typeof verifySignupSchema>;
-
-export const googleLoginSchema = z.object({ credential: z.string().min(20, 'Missing Google sign-in token') });
 
 export const createUserSchema = z.object({ name: personName, email, role, password });
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -134,7 +122,6 @@ export const listProjectsQuerySchema = z.object({
   board: z.enum(['true', 'false']).optional(),
 });
 
-export type LoginInput = z.infer<typeof loginSchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 
 export const addChecklistItemSchema = z.object({ text: checklistText });

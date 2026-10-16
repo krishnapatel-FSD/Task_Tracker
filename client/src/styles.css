@@ -2255,55 +2255,38 @@ textarea {
   letter-spacing: 0.4em;
   text-align: center;
 }
-.google-button {
-  min-height: 44px;
-  display: flex;
-  justify-content: center;
+.app-loading {
+  min-height: 100dvh;
+  background: var(--ground);
 }
-.login-or {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: var(--text-sm);
-  color: var(--ink-3);
-}
-.login-or::before,
-.login-or::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--rule-strong);
-}
-
-/* ---------- People page ---------- */
-
-.email-check {
+.twofa-steps {
+  margin: 0;
+  padding-left: 1.2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  padding: 1rem 1.1rem;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-panel);
-}
-.email-check-status {
+  gap: 0.35rem;
   font-size: var(--text-md);
   color: var(--ink-2);
 }
-.email-check-status.is-off {
-  color: var(--late-ink);
-  font-weight: 600;
+.twofa-qr {
+  display: grid;
+  place-items: center;
+  min-height: 196px;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-panel);
+  font-size: var(--text-sm);
+  color: #45464d;
 }
-.email-check-form {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+.twofa-secret {
+  font-family: ui-monospace, monospace;
+  font-size: var(--text-sm);
+  word-break: break-all;
+  color: var(--ink);
 }
-.email-check-form input {
-  flex: 1;
-  min-width: 12rem;
-  max-width: 22rem;
-}
+
+/* ---------- People page ---------- */
 
 .person-row {
   flex-wrap: wrap;

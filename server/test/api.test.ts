@@ -2,7 +2,7 @@
 // Each run creates its own project and tasks and hard-deletes them at the end.
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import { call, cleanupProjects, login, startServer, stopServer, uniqueName, type Session } from './helpers.js';
+import { call, cleanupProjects, login, startServer, stopServer, tokenFor, uniqueName, type Session } from './helpers.js';
 
 /** Marking a task done always carries a completion note. */
 const DONE_NOTE = { summary: 'Finished and checked', minutesSpent: 45 };
@@ -57,19 +57,15 @@ describe('auth', () => {
     assert.equal(asha.user.role, 'employee');
   });
 
-  test('wrong password is 401', async () => {
-    const res = await call('POST', '/auth/login', { body: { email: 'admin@example.com', password: 'nope' } });
-    assert.equal(res.status, 401);
-    assert.equal(typeof res.body.error, 'string');
-  });
-
-  test('unknown email is 401', async () => {
-    assert.equal((await call('POST', '/auth/login', { body: { email: 'ghost@example.com', password: 'x' } })).status, 401);
-  });
-
   test('missing or invalid token is 401', async () => {
     assert.equal((await call('GET', '/tasks')).status, 401);
     assert.equal((await call('GET', '/tasks', { token: 'garbage' })).status, 401);
+  });
+
+  test('a session without its authenticator code (aal1) is refused', async () => {
+    const res = await call('GET', '/tasks', { token: tokenFor({ authId: admin.user.id, aal: 'aal1' }) });
+    assert.equal(res.status, 403);
+    assert.match(res.body.error, /authenticator/);
   });
 });
 
