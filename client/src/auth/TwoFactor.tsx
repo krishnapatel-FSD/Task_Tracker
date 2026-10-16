@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AuthLayout, UNREACHABLE } from '../pages/Login';
 import { supabase } from '../supabase';
 import { useAuth } from './AuthContext';
@@ -39,30 +39,45 @@ function Footer() {
   );
 }
 
-/** First sign-in: scan a QR code with an authenticator app, then confirm with one code. */
+/** Clears setups that were started but never finished (other tabs, expired QR codes). */
+async function clearUnfinishedSetups(keep?: string) {
+  const { data } = await supabase.auth.mfa.listFactors();
+  for (const f of data?.all ?? []) if (f.status === 'unverified' && f.id !== keep) await supabase.auth.mfa.unenroll({ factorId: f.id });
+}
+
+/**
+ * First sign-in: scan a QR code with an authenticator app, then confirm with one code.
+ * Supabase drops an unfinished setup after a few minutes; if that happens a fresh QR code
+ * replaces the old one.
+ */
 function SetUpAuthenticator() {
   const { refresh } = useAuth();
   const [factor, setFactor] = useState<{ id: string; qr: string; secret: string } | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const started = useRef(false);
+
+  const newQrCode = useCallback(async () => {
+    setFactor(null);
+    setShowSecret(false);
+    const enroll = () => supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Authenticator ${Date.now()}` });
+    let { data, error: failed } = await enroll();
+    if (failed?.code === 'too_many_enrolled_mfa_factors') {
+      await clearUnfinishedSetups();
+      ({ data, error: failed } = await enroll());
+    }
+    if (failed || !data) setError(failed?.message || UNREACHABLE);
+    else setFactor({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      // A setup that was started and abandoned blocks a new one; clear it first.
-      const { data: list } = await supabase.auth.mfa.listFactors();
-      for (const f of list?.all ?? []) if (f.status === 'unverified') await supabase.auth.mfa.unenroll({ factorId: f.id });
-      const { data, error: failed } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Authenticator ${Date.now()}` });
-      if (cancelled) return;
-      if (failed || !data) setError(failed?.message || UNREACHABLE);
-      else setFactor({ id: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (started.current) return;
+    started.current = true;
+    void newQrCode();
+  }, [newQrCode]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -70,12 +85,20 @@ function SetUpAuthenticator() {
     if (!/^\d{6}$/.test(code)) return setError('Enter the 6-digit code shown in the app.');
     setBusy(true);
     setError(null);
+    setNotice(null);
     const { error: failed } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
     if (failed) {
       setBusy(false);
-      setError(failed.code === 'mfa_verification_failed' ? "That code isn't right. Use the newest code in the app." : failed.message || UNREACHABLE);
+      setCode('');
+      if (failed.code === 'mfa_factor_not_found' || failed.code === 'mfa_challenge_expired' || failed.status === 404) {
+        setNotice('That QR code expired. In your app, delete the Task Tracker entry you just added, then scan this new code.');
+        await newQrCode();
+      } else {
+        setError(failed.code === 'mfa_verification_failed' ? "That code isn't right. Use the newest code in the app." : failed.message || UNREACHABLE);
+      }
       return;
     }
+    await clearUnfinishedSetups(factor.id).catch(() => undefined);
     await refresh();
   }
 
@@ -86,7 +109,7 @@ function SetUpAuthenticator() {
         <li>
           Install <strong>Google Authenticator</strong> or <strong>Microsoft Authenticator</strong> on your phone.
         </li>
-        <li>In the app, tap <strong>+</strong> and scan this code.</li>
+        <li>In the app, tap <strong>+</strong> and scan this code. It works for a few minutes.</li>
         <li>Type the 6-digit code the app shows.</li>
       </ol>
 
@@ -110,6 +133,11 @@ function SetUpAuthenticator() {
 
       <CodeField code={code} setCode={setCode} invalid={Boolean(error)} />
 
+      {notice && (
+        <p className="banner banner-info" role="status">
+          {notice}
+        </p>
+      )}
       {error && (
         <p className="banner banner-error" role="alert">
           {error}

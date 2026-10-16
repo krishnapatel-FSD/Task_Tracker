@@ -453,6 +453,10 @@ textarea {
 .banner-error .btn-link {
   color: var(--late);
 }
+.banner-info {
+  background: var(--lit-tint);
+  color: var(--lit-ink);
+}
 .empty {
   display: flex;
   flex-direction: column;
