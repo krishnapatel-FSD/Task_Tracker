@@ -307,9 +307,17 @@ describe('update status', () => {
 
   test('unknown or malformed id is 404', async () => {
     for (const id of ['00000000-0000-4000-8000-000000000000', 'not-a-uuid']) {
-      const res = await call('PATCH', `/tasks/${id}/status`, { token: admin.token, body: { status: 'done', note: DONE_NOTE } });
+      const res = await call('PATCH', `/tasks/${id}/status`, { token: asha.token, body: { status: 'done', note: DONE_NOTE } });
       assert.equal(res.status, 404);
     }
+  });
+
+  test('the admin cannot change a status; only the assignee can', async () => {
+    const task = await makeTask();
+    const res = await call('PATCH', `/tasks/${task.id}/status`, { token: admin.token, body: { status: 'in_progress' } });
+    assert.equal(res.status, 403);
+    assert.match(res.body.error, /assigned/);
+    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: asha.token, body: { status: 'in_progress' } })).status, 200);
   });
 
   test('invalid status is 400', async () => {

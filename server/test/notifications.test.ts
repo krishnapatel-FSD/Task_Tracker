@@ -102,11 +102,10 @@ describe('who gets notified', () => {
     assert.match(rows[0].title, /marked .* as Done/);
   });
 
-  test('an admin status change notifies the assignee', async () => {
+  test("the admin can't change a status, so nobody is notified", async () => {
     const task = await makeTask();
-    await call('PATCH', `/tasks/${task.id}/status`, { token: admin.token, body: { status: 'in_progress' } });
-    const rows = (await rowsForTask(task.id)).filter((r) => r.type === 'status_changed');
-    assert.deepEqual(recipients(rows), [asha.user.id]);
+    assert.equal((await call('PATCH', `/tasks/${task.id}/status`, { token: admin.token, body: { status: 'in_progress' } })).status, 403);
+    assert.equal((await rowsForTask(task.id)).filter((r) => r.type === 'status_changed').length, 0);
   });
 
   test('a rolled-back change leaves no notification behind', async () => {

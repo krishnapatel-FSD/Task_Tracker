@@ -26,8 +26,10 @@ interface Props {
   state: PanelState;
   task: Task | null;
   isAdmin: boolean;
-  /** The admin or the assignee. Everyone else on the team sees the task read-only. */
+  /** Moving the task (status): the assignee only. The admin assigns and reviews. */
   canChange: boolean;
+  /** Checklist and files: the admin or the assignee. Everyone else sees the task read-only. */
+  canEdit: boolean;
   employees: Employee[];
   projects: ProjectRef[];
   /** Set on a project page: new tasks start in this project and the pass skips the project link. */
@@ -125,7 +127,7 @@ export function TaskPanel(props: Props) {
   );
 }
 
-function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch, onHandoff, onAccepted }: Props & { task: Task }) {
+function TaskDetails({ task, isAdmin, canChange, canEdit, employees, currentProjectId, updating, onEdit, onDelete, onStatusChange, onPatch, onHandoff, onAccepted }: Props & { task: Task }) {
   const [tab, setTab] = useState<'comments' | 'notes' | 'files' | 'activity'>(task.status === 'done' && task.noteCount > 0 ? 'notes' : 'comments');
   const onCommentCount = useCallback(
     (commentCount: number) => commentCount !== task.commentCount && onPatch(task.id, { commentCount }),
@@ -212,7 +214,11 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
           </div>
         ) : (
           <p className="pass-readonly">
-            {task.handoffPending ? 'This task is waiting for its handoff to be accepted.' : `Only ${task.assignee.name} and the admin can change this task.`}
+            {task.handoffPending
+              ? 'This task is waiting for its handoff to be accepted.'
+              : isAdmin
+                ? `${task.assignee.name} moves this task forward. Each change shows up here.`
+                : `Only ${task.assignee.name} can change this task.`}
           </p>
         )}
       </article>
@@ -225,13 +231,13 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
 
       <Checklist
         taskId={task.id}
-        canEdit={canChange}
+        canEdit={canEdit}
         onCountChange={(checklistTotal, checklistDone) =>
           (checklistTotal !== task.checklistTotal || checklistDone !== task.checklistDone) && onPatch(task.id, { checklistTotal, checklistDone })
         }
       />
 
-      {(isAdmin || canChange) && (
+      {canEdit && (
         <div className="panel-admin">
           {isAdmin && (
             <button type="button" className="btn btn-quiet" onClick={() => onEdit(task)}>
@@ -275,7 +281,7 @@ function TaskDetails({ task, isAdmin, canChange, employees, currentProjectId, up
           ) : tab === 'notes' ? (
             <Notes taskId={task.id} refreshKey={`${task.noteCount}`} />
           ) : tab === 'files' ? (
-            <Files taskId={task.id} canEdit={canChange} onCountChange={onCountChange} />
+            <Files taskId={task.id} canEdit={canEdit} onCountChange={onCountChange} />
           ) : (
             <Activity taskId={task.id} refreshKey={`${task.updatedAt}:${task.attachmentCount}`} />
           )}

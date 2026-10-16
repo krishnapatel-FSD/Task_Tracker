@@ -50,7 +50,9 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
   const isAdmin = user?.role === 'admin';
   const mineOnly = !isAdmin && scope === 'mine';
   // A task handed to you stays locked until you accept the handoff.
-  const canChange = (task: Task) => isAdmin || (task.assignee.id === user?.id && !task.handoffPending);
+  // Checklist and files: the admin or the assignee. Status: the assignee only.
+  const canEdit = (task: Task) => isAdmin || (task.assignee.id === user?.id && !task.handoffPending);
+  const canChange = (task: Task) => !isAdmin && task.assignee.id === user?.id && !task.handoffPending;
   const [view, setViewState] = useState<View>(savedView);
   const setView = (v: View) => {
     setViewState(v);
@@ -388,6 +390,7 @@ export function TasksPage({ project, scope = 'all' }: { project?: ProjectRef; sc
         task={selectedTask}
         isAdmin={isAdmin}
         canChange={selectedTask ? canChange(selectedTask) : false}
+        canEdit={selectedTask ? canEdit(selectedTask) : false}
         employees={employees}
         projects={projects}
         currentProjectId={project?.id}

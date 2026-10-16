@@ -174,6 +174,8 @@ export async function updateTask(caller: AuthUser, id: string, input: UpdateTask
 }
 
 export async function updateTaskStatus(caller: AuthUser, taskId: string, { status, note }: UpdateStatusInput) {
+  // Status is the assignee's call: the admin assigns and reviews, but never moves the work.
+  if (caller.role === 'admin') throw forbidden("Only the person the task is assigned to can change its status");
   return db.transaction(async (tx) => {
     const task = await loadTaskFor(caller, taskId, 'write', tx);
     if (task.status === status) return (await getTaskById(taskId, tx))!;
