@@ -9,6 +9,7 @@ import { boardDateText } from '../tasks/bits';
 import { useClock } from '../tasks/TasksPage';
 import { todayIso } from '../timetable';
 import type { ProjectBoardRow } from '../types';
+import { useLiveRefresh } from '../live';
 
 type CardFilter = 'all' | 'late' | 'changed';
 
@@ -36,6 +37,9 @@ export function ProjectsHome() {
   useEffect(() => {
     load();
   }, [unread]);
+
+  // Someone added, moved or finished work: refresh the project cards.
+  useLiveRefresh(load, (c) => c.scope === 'tasks' || c.scope === 'projects');
 
   const all = rows ?? [];
   const lateCount = all.filter((p) => p.lateTasks > 0).length;

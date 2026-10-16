@@ -4,6 +4,7 @@ import { api, ApiError, downloadAttachment, uploadAttachment } from '../api';
 import { useAuth } from '../auth/AuthContext';
 import { formatBytes, formatDateTime, timeAgo } from '../format';
 import type { Attachment } from '../types';
+import { useLiveRefresh } from '../live';
 
 const MAX_MB = 10;
 const MAX_FILES = 10;
@@ -40,6 +41,9 @@ export function Files({ taskId, canEdit, onCountChange }: { taskId: string; canE
   useEffect(() => {
     load();
   }, [load]);
+
+  // Files added or removed by someone else show up at once.
+  useLiveRefresh(load, (c) => c.scope === 'attachments' || (c.scope === 'tasks' && c.taskId === taskId));
 
   const updateUpload = (key: number, patch: Partial<Upload>) =>
     setUploads((list) => list.map((u) => (u.key === key ? { ...u, ...patch } : u)));

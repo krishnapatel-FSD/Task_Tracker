@@ -13,6 +13,7 @@ import { PeoplePage } from './pages/PeoplePage';
 import { Signup } from './pages/Signup';
 import { ProjectPage } from './projects/ProjectPage';
 import { ProjectsHome } from './projects/ProjectsHome';
+import { useLiveConnection } from './live';
 import { UnreadContext, useUnreadCountPoller } from './notifications';
 import { TasksPage } from './tasks/TasksPage';
 
@@ -27,6 +28,7 @@ function HomeRedirect() {
 export function App() {
   const { stage, user } = useAuth();
   const unread = useUnreadCountPoller(Boolean(user));
+  useLiveConnection(stage === 'ready');
 
   // Restoring the session: show nothing rather than bouncing a deep link to the sign-in page.
   if (stage === 'loading') return <div className="app-loading" aria-busy="true" />;

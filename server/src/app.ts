@@ -1,6 +1,8 @@
 import cors from 'cors';
 import express, { Router } from 'express';
 import { env } from './lib/env.js';
+import { announceChanges, openLiveStream } from './lib/liveUpdates.js';
+import { authenticate } from './middleware/authenticate.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { attachmentsRouter, taskAttachmentsRouter } from './routes/attachments.js';
 import { authRouter } from './routes/auth.js';
@@ -28,6 +30,9 @@ export function createApp() {
   api.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+  // Live updates: one stream per open browser; every successful change is announced on it.
+  api.use(announceChanges);
+  api.get('/live', authenticate, openLiveStream);
   api.use('/auth', authRouter);
   api.use('/users', usersRouter);
   api.use('/projects', projectsRouter);

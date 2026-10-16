@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { formatDateTime, timeAgo } from '../format';
 import type { CommentRevision, Employee, Person, TaskComment } from '../types';
 import { useToast } from './Toast';
+import { useLiveRefresh } from '../live';
 
 const UNDO_MS = 8000;
 
@@ -45,6 +46,9 @@ export function Comments({ taskId, onCountChange }: { taskId: string; onCountCha
     setError(null);
     load();
   }, [taskId]);
+
+  // A comment added, edited or removed by someone else shows up at once.
+  useLiveRefresh(load, (c) => c.scope === 'comments' || (c.scope === 'tasks' && c.taskId === taskId));
 
   async function remove(c: TaskComment) {
     try {

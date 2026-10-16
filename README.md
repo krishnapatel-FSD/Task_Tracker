@@ -135,6 +135,7 @@ All under `/api`; errors are `{ "error": "message" }`. Every route except `/auth
 
 | Method & path | Access | Purpose |
 | --- | --- | --- |
+| `GET /live` | Logged in | Server-Sent Events: `{ scope, taskId?, actorId? }` after every successful change, so open screens refresh at once |
 | `GET /auth/options` | Public | `{ signupDomains }` for the sign-in page |
 | `GET /auth/me` | Supabase login with 2FA | The app account for this login; made on first sign-in |
 | `GET /users` | Logged in | Employees `{ id, name }` |
@@ -144,7 +145,7 @@ All under `/api`; errors are `{ "error": "message" }`. Every route except `/auth
 | `GET /tasks?status=&assigneeId=&projectId=` | Logged in | Admin: all tasks; employee: own tasks only |
 | `POST /tasks` | Admin | Create task (starts as `todo`) |
 | `PATCH /tasks/:id` | Admin | Edit title, description, priority, deadline, project, assignee (only changed fields are logged) |
-| `PATCH /tasks/:id/status` | Admin or assignee | `{ status }` |
+| `PATCH /tasks/:id/status` | Assignee | `{ status }` (the admin can't move tasks) |
 | `DELETE /tasks/:id`, `POST /tasks/:id/restore` | Admin | Soft delete; restore powers Undo |
 | `GET /tasks/:id/events` | Admin or assignee | Activity timeline with names resolved |
 | `GET /tasks/:id/attachments`, `POST /tasks/:id/attachments` | Admin or assignee | List; upload one file (`multipart/form-data`, field `file`) |

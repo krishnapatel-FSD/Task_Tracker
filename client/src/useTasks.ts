@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from './api';
+import { TASK_SCOPES, useLiveRefresh } from './live';
 import { NOTIFICATIONS_ARRIVED } from './notifications';
 import type { CompletionNote, Status, Task, TaskFilterValues } from './types';
 
@@ -14,11 +15,19 @@ export function useTasks(filters: TaskFilterValues) {
   const [flashId, setFlashId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const flashTimer = useRef<number | undefined>(undefined);
+  // A background refresh (someone else changed something) shows no loading state.
+  const quiet = useRef(false);
+  // While a status change of ours is on its way, a background refresh could show the old status.
+  const saving = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
+    const isQuiet = quiet.current;
+    quiet.current = false;
+    if (!isQuiet) {
+      setLoading(true);
+      setError(null);
+    }
     api
       .listTasks(filters)
       .then((result) => !cancelled && setTasks(result))
@@ -31,12 +40,20 @@ export function useTasks(filters: TaskFilterValues) {
 
   useEffect(() => () => window.clearTimeout(flashTimer.current), []);
 
-  // Something changed elsewhere (a new notification arrived): refresh quietly.
-  useEffect(() => {
-    const onArrived = () => setReloadKey((k) => k + 1);
-    window.addEventListener(NOTIFICATIONS_ARRIVED, onArrived);
-    return () => window.removeEventListener(NOTIFICATIONS_ARRIVED, onArrived);
+  const quietReload = useCallback(() => {
+    if (saving.current > 0) return;
+    quiet.current = true;
+    setReloadKey((k) => k + 1);
   }, []);
+
+  // Someone changed a task, project, comment, checklist or file: refresh quietly, at once.
+  useLiveRefresh(quietReload, (change) => TASK_SCOPES.has(change.scope));
+
+  // Backup for a dropped live connection: a new notification also refreshes.
+  useEffect(() => {
+    window.addEventListener(NOTIFICATIONS_ARRIVED, quietReload);
+    return () => window.removeEventListener(NOTIFICATIONS_ARRIVED, quietReload);
+  }, [quietReload]);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -79,6 +96,9 @@ export function useTasks(filters: TaskFilterValues) {
     async (task: Task, status: Status, note?: CompletionNote): Promise<Task | null> => {
       setUpdatingId(task.id);
       setError(null);
+      saving.current++;
+      // Show the new status straight away; put the old one back if the server refuses.
+      setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, status } : t)));
       try {
         const updated = await api.updateTaskStatus(task.id, status, note);
         setTasks((list) =>
@@ -90,9 +110,11 @@ export function useTasks(filters: TaskFilterValues) {
         flash(updated.id);
         return updated;
       } catch (err) {
+        setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)));
         setError(err instanceof ApiError ? err.message : "We couldn't save that status change. Try again.");
         return null;
       } finally {
+        saving.current--;
         setUpdatingId(null);
       }
     },

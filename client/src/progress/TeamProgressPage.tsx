@@ -6,6 +6,7 @@ import { formatMinutes } from '../format';
 import type { ProgressReport } from '../types';
 import { useProjects } from '../useProjects';
 import { MonthPicker, ProgressLegend, ProgressRow, useMonth } from './ProgressRow';
+import { useLiveRefresh } from '../live';
 
 /** Admin: every employee's month at a glance, people with late work first. */
 export function TeamProgressPage() {
@@ -26,6 +27,9 @@ export function TeamProgressPage() {
   }, [month.from, month.to, projectId]);
 
   useEffect(load, [load]);
+
+  // Progress moves as soon as anyone moves a task.
+  useLiveRefresh(load, (c) => c.scope === 'tasks' || c.scope === 'projects' || c.scope === 'users');
 
   const people = useMemo(
     () => [...(report?.people ?? [])].sort((a, b) => b.late - a.late || (a.percentDone ?? 101) - (b.percentDone ?? 101) || a.name.localeCompare(b.name)),

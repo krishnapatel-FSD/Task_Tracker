@@ -27,7 +27,7 @@ import type {
   User,
 } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
+export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
 
 export class ApiError extends Error {
   constructor(
@@ -45,6 +45,7 @@ let accessToken: string | null = null;
 export function setAccessToken(token: string | null) {
   accessToken = token;
 }
+export const getAccessToken = () => accessToken;
 
 // Called on any 401 from an authenticated request (expired or invalid token).
 let onUnauthorized: () => void = () => {};

@@ -2,6 +2,7 @@ import { Plus, X } from '@phosphor-icons/react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api';
 import type { ChecklistItem } from '../types';
+import { useLiveRefresh } from '../live';
 
 /**
  * Steps inside a task. The admin and the assignee tick, add and remove them; everyone
@@ -36,6 +37,9 @@ export function Checklist({
     setError(null);
     load();
   }, [taskId]);
+
+  // Steps ticked by someone else show up at once.
+  useLiveRefresh(load, (c) => c.scope === 'checklist' || (c.scope === 'tasks' && c.taskId === taskId));
 
   async function run(id: string, action: () => Promise<unknown>) {
     setBusyId(id);

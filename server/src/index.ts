@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { pool } from './db/index.js';
+import { closeLiveStreams } from './lib/liveUpdates.js';
 import { registerJob, startJobs } from './jobs/index.js';
 import { env } from './lib/env.js';
 import { purgeDeletedFiles } from './services/attachmentService.js';
@@ -21,6 +22,7 @@ const server = createApp().listen(env.PORT, () => {
 // release the database connections, so nothing is cut off half way.
 function shutdown(signal: string) {
   console.log(`${signal} received, shutting down`);
+  closeLiveStreams();
   server.close(() => {
     pool.end().finally(() => process.exit(0));
   });

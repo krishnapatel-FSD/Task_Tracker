@@ -1,7 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { api } from './api';
+import { useLiveRefresh } from './live';
 
-const POLL_MS = 30_000;
+// Live updates refresh the count at once; this slow check is only a backup.
+const POLL_MS = 60_000;
 /** Fired on window when the unread count goes up, so open lists can refresh. */
 export const NOTIFICATIONS_ARRIVED = 'tt:notifications-arrived';
 
@@ -14,8 +16,8 @@ export const UnreadContext = createContext<UnreadState>({ count: 0, refresh: () 
 export const useUnread = () => useContext(UnreadContext);
 
 /**
- * Polls the unread count every 30 s while the tab is visible, and refetches when the
- * tab comes back into view. Near real-time without websockets.
+ * Refreshes the unread count whenever a live change arrives (a change can notify you), plus a
+ * slow backup check while the tab is visible and a refetch when it comes back into view.
  */
 export function useUnreadCountPoller(enabled: boolean): UnreadState {
   const [count, setCount] = useState(0);
@@ -32,6 +34,8 @@ export function useUnreadCountPoller(enabled: boolean): UnreadState {
       })
       .catch(() => {});
   }, [enabled]);
+
+  useLiveRefresh(refresh, () => true, 400);
 
   useEffect(() => {
     if (!enabled) {
